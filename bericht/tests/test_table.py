@@ -123,6 +123,14 @@ class Table(Flowable):
             else:
                 raise LayoutError("Splitting cell {} produced unexpected result.".format(cell))
 
+        if not top_rows and not any(top_half):
+            # This lets reportlab know that we couldn't split the table
+            # presumably it will move on to the next page
+            # note: this is common when small amount of space
+            # is left at bottom of page but even a single line
+            # of text will not fit there
+            return []
+
         if any(top_half):
             top_rows.append(top_half)
 
@@ -196,5 +204,5 @@ class TestTableDraw(TestCase):
     def test_table_draw(self):
         doc = SimpleDocTemplate('mydoc.pdf', pagesize=letter)
         doc.build([Table([
-            [hello_p(10, i, 1), hello_p(20, i, 2)] for i in range(1, 10)
+            [hello_p(10, i, 1), hello_p(20, i, 2)] for i in range(1, 20)
         ])])
