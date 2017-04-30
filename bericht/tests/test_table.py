@@ -30,12 +30,11 @@ class Table(Flowable):
                 self.draw_cell(cell, (x, y), (width, height))
 
     def draw_cell(self, cell, position, size):
-        if not cell:
-            return
         x, y = position
         width, height = size
-        cell.drawOn(self.canv, x, y)
         self.canv.rect(x, y, width, height)
+        if cell:
+            cell.drawOn(self.canv, x, y)
 
     def wrap(self, available_width, available_height):
         """ Constrains each row to the available_width and records
@@ -45,6 +44,9 @@ class Table(Flowable):
             Also, calculates the row and column positions for draw
             operation.
         """
+        if not available_width or not available_height:
+            return 0, 0
+
         col_width = float(available_width) / self.columns_count
         consumed_height = 0
 
@@ -53,8 +55,8 @@ class Table(Flowable):
         for row in self.rows:
             row_height = 0
             for col_idx, col in enumerate(row):
-                if col:
-                    width, height = col.wrapOn(None, self._col_widths[col_idx], available_height - consumed_height)
+                if col is not None:
+                    _, height = col.wrapOn(None, self._col_widths[col_idx], available_height - consumed_height)
                     row_height = max(height, row_height)
             self._row_heights.append(row_height)
             consumed_height += row_height
@@ -62,7 +64,7 @@ class Table(Flowable):
         # columns are positioned left -> right
         self._col_offsets = [sum(self._col_widths[:i]) for i in range(len(self._col_widths))]
         # rows are positioned bottom -> top
-        self._row_offsets = [sum(self._row_heights[i:]) for i in range(len(self._row_heights))]
+        self._row_offsets = [sum(self._row_heights[i+1:]) for i in range(len(self._row_heights))]
 
         return available_width, consumed_height
 
@@ -72,6 +74,9 @@ class Table(Flowable):
             available_height and the second table is everything
             that's left over.
         """
+        if not available_width or not available_height:
+            return []
+
         if self._row_heights is None:
             self.wrap(available_width, available_height)
 
@@ -90,7 +95,7 @@ class Table(Flowable):
         if consumed_height <= available_height:
             if len(self.rows) == 1 or len(self.rows)-1 == split_at_row:
                 # nothing to split
-                return []
+                return [self]
             else:
                 # table split cleanly after a row, no need to further split any rows/cells
                 return [
@@ -106,6 +111,12 @@ class Table(Flowable):
         bottom_half = []
         top_height = available_height - (consumed_height - split_row_height)
         for col_idx, cell in enumerate(split_row):
+
+            if cell is None:
+                top_half.append(None)
+                bottom_half.append(None)
+                continue
+
             split = cell.split(self._col_widths[col_idx], top_height)
             if not split:
                 # cell could not be split,
@@ -169,7 +180,7 @@ class TestWrapTable(TestCase):
         self.assertEqual(table._col_widths, [50])
         self.assertEqual(table._col_offsets, [0])
         self.assertEqual(table._row_heights, [120])
-        self.assertEqual(table._row_offsets, [120])
+        self.assertEqual(table._row_offsets, [0])
 
     def test_wrap_uses_tallest_column_in_each_row(self):
         table = Table([
@@ -180,7 +191,7 @@ class TestWrapTable(TestCase):
         self.assertEqual(table._col_widths, [50, 50])
         self.assertEqual(table._col_offsets, [0, 50])
         self.assertEqual(table._row_heights, [240, 240])
-        self.assertEqual(table._row_offsets, [480, 240])
+        self.assertEqual(table._row_offsets, [240, 0])
 
 
 class TestSplitTable(TestCase):
@@ -188,7 +199,7 @@ class TestSplitTable(TestCase):
     def test_no_split_single_cell(self):
         table = Table([[hello_p(10)]])
         tables = table.split(50, 120)
-        self.assertEqual(len(tables), 0)
+        self.assertEqual(len(tables), 1)
 
     def test_split_single_cell(self):
         table = Table([[hello_p(10)]])
@@ -204,5 +215,5 @@ class TestTableDraw(TestCase):
     def test_table_draw(self):
         doc = SimpleDocTemplate('mydoc.pdf', pagesize=letter)
         doc.build([Table([
-            [hello_p(10, i, 1), hello_p(20, i, 2)] for i in range(1, 20)
+            [hello_p(10, i, 1), hello_p(30, i, 2)] for i in range(1, 30)
         ])])
