@@ -1,0 +1,5 @@
+bericht.egg-info/
+__pycache__/
+.idea/
+dist/
+build/
