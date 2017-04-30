@@ -154,21 +154,21 @@ class Table(Flowable):
         ]
 
 
-def hello_p(repeated, row=None, col=None):
-    if row and col:
-        return Paragraph(
-            'Row {} Col {}: {}'.format(
-                row, col, ' '.join('hello {}'.format(i) for i in range(repeated))
-            ), style
-        )
-    else:
-        return Paragraph(' '.join('hello {}'.format(i) for i in range(repeated)), style)
+def hello(start, end=None, row=None, col=None):
+    hellos = ' '.join('hello {}'.format(i) for i in (range(start, end) if end else range(start)))
+    return 'Row {} Col {}: {}'.format(row, col, hellos) if row and col else hellos
+
+
+def hello_p(start, row=None, col=None):
+    return Paragraph(hello(start, row, col), style)
 
 
 def str_p(paragraph):
+    if not paragraph:
+        return paragraph
     words = []
     for frag in paragraph.frags:
-        words.extend(frag.words)
+        words.extend(frag.words if hasattr(frag, 'words') else frag.text.split(' '))
     return ' '.join(words)
 
 
@@ -200,6 +200,7 @@ class TestSplitTable(TestCase):
         table = Table([[hello_p(10)]])
         tables = table.split(50, 120)
         self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0], table)
 
     def test_split_single_cell(self):
         table = Table([[hello_p(10)]])
@@ -209,11 +210,27 @@ class TestSplitTable(TestCase):
         self.assertEqual(top, "hello 0 hello 1 hello 2 hello 3 hello 4")
         self.assertEqual(bottom, "hello 5 hello 6 hello 7 hello 8 hello 9")
 
+    def test_clean_split_between_rows(self):
+        rows = [[hello_p(10)], [hello_p(10)]]
+        table = Table(rows)
+        tables = table.split(50, 120)
+        self.assertEqual(len(tables), 2)
+        self.assertEqual(tables[0].rows, [rows[0]])
+        self.assertEqual(tables[1].rows, [rows[1]])
+
+    def test_split_some_cells_and_not_others(self):
+        table = Table([[hello_p(5), hello_p(10)]])
+        tables = table.split(50, 120)
+        self.assertEqual(len(tables), 2)
+        top, bottom = [tbl.rows[0] for tbl in tables]
+        self.assertEqual([str_p(top[0]), str_p(top[1])], [hello(5), hello(5)])
+        self.assertEqual([bottom[0],  str_p(bottom[1])], [None,     hello(5, 10)])
+
 
 class TestTableDraw(TestCase):
 
     def test_table_draw(self):
         doc = SimpleDocTemplate('mydoc.pdf', pagesize=letter)
         doc.build([Table([
-            [hello_p(10, i, 1), hello_p(30, i, 2)] for i in range(1, 30)
+            [hello_p(10, row=i, col=1), hello_p(30, row=i, col=2)] for i in range(1, 30)
         ])])
