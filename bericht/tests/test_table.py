@@ -1,15 +1,15 @@
 from unittest import TestCase
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus.paragraph import Paragraph
-from reportlab.platypus.doctemplate import SimpleDocTemplate, LayoutError
+from reportlab.platypus.doctemplate import SimpleDocTemplate
 from reportlab.lib.pagesizes import letter
 
 
-from bericht import Table, TableStyle, Row, RowStyle, Cell, CellStyle
+from bericht import *
 
 
-styleSheet = getSampleStyleSheet()
-style = styleSheet['BodyText']
+rlstyleSheet = getSampleStyleSheet()
+rlstyle = rlstyleSheet['BodyText']
 
 
 def hello(start, end=None, row=None, col=None):
@@ -18,7 +18,7 @@ def hello(start, end=None, row=None, col=None):
 
 
 def hello_p(start, end=None, row=None, col=None):
-    return Paragraph(hello(start, end, row, col), style)
+    return Paragraph(hello(start, end, row, col), rlstyle)
 
 
 def str_p(paragraph):
@@ -103,6 +103,13 @@ class TestRowWrap(TestCase):
         self.assertEqual(row.width, 150)
         self.assertEqual(row.height, 246)
         self.assertEqual(row._widths, [50, 50, 50])
+
+    def test_col_span(self):
+        row = Row([Cell([hello_p(10)]), Span.COL, Cell([hello_p(10)])])
+        self.assertEqual(row.wrap(150, 10), (150, 126))
+        self.assertEqual(row.width, 150)
+        self.assertEqual(row.height, 126)
+        self.assertEqual(row._widths, [100, 50])
 
 
 class TestRowSplit(TestCase):
@@ -202,3 +209,31 @@ class TestTableDraw(TestCase):
         doc.build([Table([
             Row([Cell([hello_p(10, row=i, col=1)]), Cell([hello_p(30, row=i, col=2)])]) for i in range(1, 30)
         ])])
+
+
+class TestBuilder(TestCase):
+
+    def test_simple_string_cell(self):
+        builder = TableBuilder(rlstyle)
+        builder.row('hello')
+        tbl = builder.table
+        self.assertEqual(len(tbl.rows), 1)
+        self.assertEqual(len(tbl.rows[0].cells), 1)
+        self.assertEqual(len(tbl.rows[0].cells[0].flowables), 1)
+        self.assertEqual(str_p(tbl.rows[0].cells[0].flowables[0]), 'hello')
+
+    def test_span(self):
+        builder = TableBuilder(rlstyle)
+        builder.row('hello', Span.COL, 'world')
+        tbl = builder.table
+        self.assertEqual(len(tbl.rows), 1)
+        self.assertEqual(len(tbl.rows[0].cells), 3)
+        self.assertEqual(str_p(tbl.rows[0].cells[0].flowables[0]), 'hello')
+        self.assertEqual(tbl.rows[0].cells[1], Span.COL)
+
+    def test_draw_built_table(self):
+        builder = TableBuilder(rlstyle)
+        builder.row(hello_p(20), Span.COL, hello_p(20))
+        builder.row(hello_p(20), hello_p(20), hello_p(20))
+        doc = SimpleDocTemplate('builder.pdf', pagesize=letter)
+        doc.build([builder.table])

@@ -1,6 +1,8 @@
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
-from .cell import CellStyle
+from .cell import Cell, Span, CellStyle
+
+__all__ = ['Row', 'RowStyle']
 
 
 class RowStyle:
@@ -30,9 +32,13 @@ class Row(Flowable):
         self._widths = None
         self.style = style or RowStyle()
 
+    @property
+    def columns(self):
+        return filter(lambda c: c != Span.COL, self.cells)
+
     def draw(self):
         x = 0
-        for cell, width in zip(self.cells, self._widths):
+        for cell, width in zip(self.columns, self._widths):
             y = 0
             if cell.style.vertical_align == CellStyle.TOP:
                 y = self.height - cell.height
@@ -44,11 +50,23 @@ class Row(Flowable):
         self.width = available_width
         self.height = 0
         cell_width = float(available_width) / self._cell_count
-        self._widths = [cell_width] * self._cell_count
+
+        self._widths = []
         for cell in self.cells:
-            if cell:
-                _, height = cell.wrapOn(None, cell_width, available_height)
+            if cell == Span.COL:
+                self._widths[-1] += cell_width
+            else:
+                self._widths.append(cell_width)
+
+        for cell, width in zip(self.columns, self._widths):
+            if cell is None:
+                continue
+            elif isinstance(cell, Cell):
+                _, height = cell.wrapOn(None, width, available_height)
                 self.height = max(self.height, height)
+            else:
+                raise ValueError('Row cells must be either None, Span or Cell.')
+
         return available_width, self.height
 
     def split(self, available_width, available_height):
@@ -62,7 +80,7 @@ class Row(Flowable):
         top_half = []
         bottom_half = []
 
-        for cell, width in zip(self.cells, self._widths):
+        for cell, width in zip(self.columns, self._widths):
 
             if cell is None:
                 top_half.append(None)

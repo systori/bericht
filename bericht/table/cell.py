@@ -1,5 +1,13 @@
+from enum import Enum
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
+
+__all__ = ['Cell', 'CellStyle', 'Span']
+
+
+class Span(Enum):
+    COL = 1
+    ROW = 2
 
 
 class CellStyle:

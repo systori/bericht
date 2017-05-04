@@ -1,6 +1,8 @@
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
 
+__all__ = ['Table', 'TableStyle']
+
 
 class TableStyle:
     pass
