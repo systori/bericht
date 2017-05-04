@@ -6,6 +6,7 @@ Improved tabular report generation with ReportLab.
 to test things real quick:
 
 .. code-block:: python
+
     from reportlab.platypus.doctemplate import SimpleDocTemplate
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet
