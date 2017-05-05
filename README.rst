@@ -11,7 +11,7 @@ to test things real quick:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet
 
-    from bericht import TableBuilder, Span
+    from bericht.table import TableBuilder, Span
 
     rlstyle = getSampleStyleSheet()['BodyText']
 
