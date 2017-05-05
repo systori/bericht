@@ -5,7 +5,7 @@ from reportlab.platypus.doctemplate import SimpleDocTemplate
 from reportlab.lib.pagesizes import letter
 
 
-from bericht import *
+from bericht.table import *
 
 
 rlstyleSheet = getSampleStyleSheet()
