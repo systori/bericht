@@ -1,7 +1,7 @@
 from lxml import etree
 
 from bericht.style import BlockStyle, TextStyle, TableStyle, RowStyle, CellStyle
-from bericht.text import Paragraph, Word
+from bericht.text import Paragraph, Word, Break
 from bericht.table import Table, Row, Cell
 
 __all__ = ['parse_html']
@@ -62,7 +62,7 @@ class ParagraphCollector(Collector):
         self.styles.append(self.styles[-1].set(italic=True))
 
     def start_br(self, attrib):
-        pass
+        self.words.append(Break)
 
     def end(self, tag):
         if tag == 'p':
