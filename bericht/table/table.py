@@ -1,19 +1,17 @@
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
 
-__all__ = ['Table', 'TableStyle']
+from ..style import TableStyle
 
-
-class TableStyle:
-    pass
+__all__ = ['Table']
 
 
 class Table(Flowable):
 
-    def __init__(self, rows):
+    def __init__(self, rows, style):
         super().__init__()
-        assert rows, "Cannot create a table with no rows."
         self.rows = rows
+        self.style = style
         self._heights = None
 
     def draw(self):

@@ -9,25 +9,25 @@ from bericht.text import *
 class TestText(TestCase):
 
     def test_split(self):
-        text = Text(
+        text = Paragraph.from_string(
             "Some people don't like change, but you need to "
             "embrace change if the alternative is disaster."
         )
-        self.assertEqual(text.wrap(20, 10), (20, 204))
+        self.assertEqual(text.wrap(20, 10), (20, 238))
 
     def test_build_elon_musk_quotes(self):
         doc = SimpleDocTemplate('elon_musk_quotes.pdf', pagesize=letter)
         doc.build([
-            Text(
+            Paragraph.from_string(
                 "Some people don't like change, but you need to "
                 "embrace change if the alternative is disaster."
             ),
-            Text(
+            Paragraph.from_string(
                 "People work better when they know what the goal is "
                 "and why. It is important that people look forward "
                 "to coming to work in the morning and enjoy working. "
             ),
-            Text(textwrap.dedent("""
+            Paragraph.from_string(textwrap.dedent("""
                 Alright, thank you. 
                 So, I’ve got about apparently I’ve got about five to six minutes to say the most useful things I can think of. 
                 I’m gonna do my best. 

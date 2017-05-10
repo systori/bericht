@@ -2,7 +2,8 @@ from reportlab.platypus.paragraph import Paragraph
 
 from .table import Table
 from .row import Row
-from .cell import Cell, Span
+from .cell import Cell
+from ..style import Span
 
 __all__ = ['TableBuilder']
 

@@ -1,26 +1,9 @@
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
-from .cell import Cell, Span, CellStyle
+from .cell import Cell
+from ..style import RowStyle, VerticalAlign, Span
 
-__all__ = ['Row', 'RowStyle']
-
-
-class RowStyle:
-    __slots__ = (
-        '_page_break_inside',
-    )
-
-    def __init__(self, page_break_inside=True):
-        self._page_break_inside = page_break_inside
-
-    @property
-    def page_break_inside(self):
-        return self._page_break_inside
-
-    @page_break_inside.setter
-    def page_break_inside(self, value):
-        assert isinstance(value, bool)
-        self._page_break_inside = value
+__all__ = ('Row',)
 
 
 class Row(Flowable):
@@ -40,7 +23,7 @@ class Row(Flowable):
         x = 0
         for cell, width in zip(self.columns, self._widths):
             y = 0
-            if cell.style.vertical_align == CellStyle.TOP:
+            if cell.style.vertical_align == VerticalAlign.top:
                 y = self.height - cell.height
             if cell:
                 cell.drawOn(self.canv, x, y)
@@ -88,7 +71,7 @@ class Row(Flowable):
                 continue
 
             height = available_height
-            if cell.style.vertical_align == CellStyle.BOTTOM:
+            if cell.style.vertical_align == VerticalAlign.bottom:
                 height = available_height - (self.height - cell.height)
 
             split = cell.splitOn(None, width, height)

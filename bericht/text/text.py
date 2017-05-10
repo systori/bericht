@@ -1,29 +1,65 @@
+from math import floor
+from itertools import chain
+from collections import namedtuple
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
 from reportlab.platypus.flowables import Flowable
-from reportlab.lib.styles import getSampleStyleSheet
 
-__all__ = ['Text']
+from ..style import TextStyle, BlockStyle
 
-rlstyleSheet = getSampleStyleSheet()
-rlstyle = rlstyleSheet['BodyText']
+__all__ = ['Paragraph', 'Word']
 
 
-class Text(Flowable):
+class StyledPart(namedtuple('_StyledPart', ('style', 'part'))):
 
-    def __init__(self, text):
+    @property
+    def width(self):
+        return stringWidth(self.part, self.style.font_name, self.style.font_size)
+
+
+class Word:
+    __slots__ = ('parts',)
+
+    def __init__(self, style, word):
+        self.parts = [StyledPart(style, word)]
+
+    def add(self, style, part):
+        if self.parts[-1].style != style:
+            self.parts.append(StyledPart(style, part))
+        else:
+            self.parts[-1] = StyledPart(style, self.parts[-1].part+part)
+
+    @property
+    def width(self):
+        return sum(p.width for p in self.parts)
+
+    def __str__(self):
+        return ''.join(p.part for p in self.parts)
+
+
+class Paragraph(Flowable):
+
+    @classmethod
+    def from_string(cls, text, style=None):
+        style = style or BlockStyle.default()
+        text_style = TextStyle.from_block(style)
+        words = [Word(text_style, word) for word in text.split()]
+        return cls(words, style)
+
+    def __init__(self, words, style):
         super().__init__()
-        self.text = text
-        self.style = rlstyle
-        self.words = text.split()
+        self.words = words
+        self.style = style
         self.lines = None
 
     def draw(self):
-        font = self.style
-        x, y = 0, self.height - font.fontSize*1.2
+        if not self.words:
+            return
+        style = self.words[0].parts[0].style
+        x, y = 0, self.height - style.leading
         txt = self.canv.beginText(x, y)
-        txt.setFont(font.fontName, font.fontSize, font.leading)
+        txt.setFont(style.font_name, style.font_size, style.leading)
         for line in self.lines:
-            txt.textLine(' '.join(line))
+            txt.textLine(' '.join(str(w) for w in line))
         self.canv.drawText(txt)
 
     def wrap(self, available_width, available_height):
@@ -31,14 +67,29 @@ class Text(Flowable):
         line = []
         line_width = 0
         self.lines = [line]
-        space_width = stringWidth(' ', self.style.fontName, self.style.fontSize)
+        if not self.words:
+            return 0, 0
+        first_style = self.words[0].parts[0].style
+        space_width = stringWidth(' ', first_style.font_name, first_style.font_size)
         for word in self.words:
-            word_width = stringWidth(word, self.style.fontName, self.style.fontSize)
+            word_width = word.width
             if line_width+word_width > available_width:
                 line = []
                 line_width = 0
                 self.lines.append(line)
             line_width += word_width + space_width
             line.append(word)
-        self.height = len(self.lines) * self.style.leading
+        self.height = len(self.lines) * first_style.leading
         return available_width, self.height
+
+    def split(self, available_width, available_height):
+        first_style = self.words[0].parts[0].style
+        lines = floor(available_height / first_style.leading)
+        if not lines:
+            return []
+        elif lines == len(self.lines):
+            return [self]
+        return (
+            Paragraph(list(chain(*self.lines[:lines])), self.style),
+            Paragraph(list(chain(*self.lines[lines:])), self.style)
+        )

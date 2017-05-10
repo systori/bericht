@@ -1,34 +1,9 @@
-from enum import Enum
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
 
-__all__ = ['Cell', 'CellStyle', 'Span']
+from ..style import CellStyle
 
-
-class Span(Enum):
-    COL = 1
-    ROW = 2
-
-
-class CellStyle:
-    TOP = "top"
-    BOTTOM = "bottom"
-
-    __slots__ = (
-        '_vertical_align',
-    )
-
-    def __init__(self, vertical_align=TOP):
-        self._vertical_align = vertical_align
-
-    @property
-    def vertical_align(self):
-        return self._vertical_align
-
-    @vertical_align.setter
-    def vertical_align(self, value):
-        assert value in (CellStyle.TOP, CellStyle.BOTTOM)
-        self._vertical_align = value
+__all__ = ('Cell',)
 
 
 class Cell(Flowable):
@@ -38,7 +13,7 @@ class Cell(Flowable):
         self.flowables = flowables
         self._vpos = None
         self._heights = None
-        self.style = style or CellStyle()
+        self.style = style or CellStyle.default()
 
     def draw(self):
         for flowable, y in zip(self.flowables, self._vpos):
