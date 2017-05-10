@@ -17,17 +17,7 @@ class Align(Enum):
     justify = 4
 
 
-@cache_styles
-class TextStyle(namedtuple('_TextStyle', ('font', 'font_size', 'bold', 'italic'))):
-
-    @classmethod
-    def from_block(cls, block):
-        return cls(*block[:len(cls._fields)]).set()
-
-    def validate(self, **kwargs):
-        for key, value in kwargs.items():
-            if key in ('bold', 'italic'):
-                assert isinstance(value, bool)
+class TextProps:
 
     @property
     def font_name(self):
@@ -37,8 +27,35 @@ class TextStyle(namedtuple('_TextStyle', ('font', 'font_size', 'bold', 'italic')
     def leading(self):
         return int(self.font_size * 1.2)
 
+
 @cache_styles
-class BlockStyle(namedtuple('_BlockStyle', TextStyle._fields + ('align',))):
+class TextStyle(
+    namedtuple('_TextStyle', ('font', 'font_size', 'bold', 'italic')), TextProps):
+
+    @classmethod
+    def from_style(cls, block):
+        return cls(*block[:4]).set()
+
+    def validate(self, **kwargs):
+        for key, value in kwargs.items():
+            if key in ('bold', 'italic'):
+                assert isinstance(value, bool)
+
+
+class BlockProps(TextProps):
+    pass
+
+
+BLOCK_PROP_COUNT = len(TextStyle._fields) + 1
+
+
+@cache_styles
+class BlockStyle(
+    namedtuple('_BlockStyle', TextStyle._fields + ('align',)), BlockProps):
+
+    @classmethod
+    def from_style(cls, block):
+        return cls(*block[:BLOCK_PROP_COUNT]).set()
 
     @classmethod
     def default(cls):
@@ -69,37 +86,27 @@ class Span(Enum):
 
 
 @cache_styles
-class CellStyle(namedtuple('_CellStyle', BlockStyle._fields + ('vertical_align',))):
+class CellStyle(
+    namedtuple('_CellStyle', BlockStyle._fields + ('vertical_align',)), BlockProps):
 
     @classmethod
-    def default(cls):
-        return cls(
-            font='Helvetica',
-            font_size=12,
-            bold=False,
-            italic=False,
-            align=Align.left
-        )
+    def from_style(cls, block):
+        return cls(*block[:BLOCK_PROP_COUNT], VerticalAlign.top).set()
 
     def validate(self, **kwargs):
         BlockStyle.validate(self, **kwargs)
         for key, value in kwargs.items():
             if key == 'vertical_align':
-                assert isinstance(value, VAlign)
+                assert isinstance(value, VerticalAlign)
 
 
 @cache_styles
-class RowStyle(namedtuple('_RowStyle', BlockStyle._fields + ('page_break_inside',))):
+class RowStyle(
+    namedtuple('_RowStyle', BlockStyle._fields + ('page_break_inside',)), BlockProps):
 
     @classmethod
-    def default(cls):
-        return cls(
-            font='Helvetica',
-            font_size=12,
-            bold=False,
-            italic=False,
-            align=Align.left
-        )
+    def from_style(cls, block):
+        return cls(*block[:BLOCK_PROP_COUNT], True).set()
 
     def validate(self, **kwargs):
         BlockStyle.validate(self, **kwargs)
@@ -109,17 +116,12 @@ class RowStyle(namedtuple('_RowStyle', BlockStyle._fields + ('page_break_inside'
 
 
 @cache_styles
-class TableStyle(namedtuple('_TableStyle', BlockStyle._fields)):
+class TableStyle(
+    namedtuple('_TableStyle', BlockStyle._fields), BlockProps):
 
     @classmethod
-    def default(cls):
-        return cls(
-            font='Helvetica',
-            font_size=12,
-            bold=False,
-            italic=False,
-            align=Align.left
-        )
+    def from_style(cls, block):
+        return cls(*block[:BLOCK_PROP_COUNT]).set()
 
     def validate(self, **kwargs):
         BlockStyle.validate(self, **kwargs)

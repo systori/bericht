@@ -11,13 +11,12 @@ class Row(Flowable):
     def __init__(self, cells, style=None):
         super().__init__()
         self.cells = cells
-        self._cell_count = len(cells)
         self._widths = None
         self.style = style or RowStyle()
 
     @property
     def columns(self):
-        return filter(lambda c: c != Span.COL, self.cells)
+        return filter(lambda c: c != Span.col, self.cells)
 
     def draw(self):
         x = 0
@@ -32,11 +31,15 @@ class Row(Flowable):
     def wrap(self, available_width, available_height):
         self.width = available_width
         self.height = 0
-        cell_width = float(available_width) / self._cell_count
-
         self._widths = []
+
+        if not self.cells:
+            return 0, 0
+
+        cell_width = float(available_width) / len(self.cells)
+
         for cell in self.cells:
-            if cell == Span.COL:
+            if cell == Span.col:
                 self._widths[-1] += cell_width
             else:
                 self._widths.append(cell_width)

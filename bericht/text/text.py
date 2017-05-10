@@ -69,8 +69,7 @@ class Paragraph(Flowable):
         self.lines = [line]
         if not self.words:
             return 0, 0
-        first_style = self.words[0].parts[0].style
-        space_width = stringWidth(' ', first_style.font_name, first_style.font_size)
+        space_width = stringWidth(' ', self.style.font_name, self.style.font_size)
         for word in self.words:
             word_width = word.width
             if line_width+word_width > available_width:
@@ -79,7 +78,7 @@ class Paragraph(Flowable):
                 self.lines.append(line)
             line_width += word_width + space_width
             line.append(word)
-        self.height = len(self.lines) * first_style.leading
+        self.height = len(self.lines) * self.style.leading
         return available_width, self.height
 
     def split(self, available_width, available_height):

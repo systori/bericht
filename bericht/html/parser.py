@@ -1,13 +1,13 @@
 from lxml import etree
 
-from bericht.style import BlockStyle
+from bericht.style import BlockStyle, TextStyle, TableStyle, RowStyle, CellStyle
 from bericht.text import Paragraph, Word
 from bericht.table import Table, Row, Cell
 
 __all__ = ['parse_html']
 
 
-def parse_html(html, style):
+def parse_html(html, style=None):
     target = ParserEventTarget(style or BlockStyle.default())
     parser = etree.HTMLParser(
         remove_comments=True,
@@ -42,9 +42,10 @@ class Collector:
 class ParagraphCollector(Collector):
 
     tag = 'p'
-    allowed = ('b', 'i', 'u', 'span')
+    allowed = ('b', 'i', 'u', 'span', 'br')
 
     def __init__(self, style):
+        style = BlockStyle.from_style(style)
         super().__init__(style)
         self.styles = [style]
         self.words = []
@@ -60,9 +61,14 @@ class ParagraphCollector(Collector):
     def start_i(self, attrib):
         self.styles.append(self.styles[-1].set(italic=True))
 
+    def start_br(self, attrib):
+        pass
+
     def end(self, tag):
         if tag == 'p':
             return True
+        elif tag == 'br':
+            pass
         else:
             self.styles.pop()
 
@@ -78,6 +84,7 @@ class CellCollector(Collector):
     }
 
     def __init__(self, style):
+        style = CellStyle.from_style(style)
         super().__init__(style)
         self.flowable = Cell(self.flowables, style)
 
@@ -89,6 +96,7 @@ class RowCollector(Collector):
     }
 
     def __init__(self, style):
+        style = RowStyle.from_style(style)
         super().__init__(style)
         self.flowable = Row(self.flowables, style)
 
@@ -100,6 +108,7 @@ class TableCollector(Collector):
     }
 
     def __init__(self, style):
+        style = TableStyle.from_style(style)
         super().__init__(style)
         self.flowable = Table(self.flowables, style)
 
