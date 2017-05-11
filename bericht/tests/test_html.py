@@ -1,6 +1,7 @@
 from unittest import TestCase
 from reportlab.platypus.doctemplate import SimpleDocTemplate
 from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen.canvas import Canvas
 
 from bericht.html import *
 from bericht.text import *
@@ -19,6 +20,27 @@ class TestHtmlParagraphs(TestCase):
         self.assertEqual(hello.style.italic, False)
         self.assertEqual(world.style.bold, False)
         self.assertEqual(world.style.italic, True)
+
+    def draw(self, p):
+        p.wrap(200, 100)
+        canv = Canvas(None)
+        p.canv = canv
+        p.draw()
+        return canv._code[0]
+
+    def assertPDF(self, input, output):
+        self.assertEqual(self.draw(input), ' '.join(output))
+
+    def test_lxml_weirdness(self):
+        p = parse_html("<p>I’ve I’ve</p>", BlockStyle.default())[0]
+        self.assertPDF(p, [
+            "BT",
+            "1 0 0 1 0 0 Tm",
+            "/F1 12 Tf 14 TL",
+            "/F1 12 Tf",
+            r"(I \222ve I\222ve) Tj T*",
+            "ET"
+        ])
 
 
 class TestAllTheThings(TestCase):
