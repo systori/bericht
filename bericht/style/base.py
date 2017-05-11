@@ -1,5 +1,8 @@
-from collections import namedtuple
 from enum import Enum
+from collections import namedtuple
+
+from reportlab.lib.fonts import tt2ps
+
 from .utils import cache_styles
 
 
@@ -21,7 +24,7 @@ class TextProps:
 
     @property
     def font_name(self):
-        return self.font
+        return tt2ps(self.font, self.bold, self.italic)
 
     @property
     def leading(self):

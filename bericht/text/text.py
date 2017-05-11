@@ -27,6 +27,7 @@ class Word:
             self.parts.append(StyledPart(style, part))
         else:
             self.parts[-1] = StyledPart(style, self.parts[-1].part+part)
+        return self
 
     @property
     def width(self):
@@ -55,12 +56,27 @@ class Paragraph(Flowable):
         self.lines = None
 
     def draw(self):
-        style = self.style
+        style = TextStyle.from_style(self.style)
         x, y = 0, self.height - style.leading
         txt = self.canv.beginText(x, y)
         txt.setFont(style.font_name, style.font_size, style.leading)
         for line in self.lines:
-            txt.textLine(' '.join(str(w) for w in line if w is not Break))
+            fragments = []
+            for word in line:
+                if word is Break:
+                    continue
+                for part in word.parts:
+                    if style != part.style:
+                        if fragments:
+                            txt._textOut(''.join(fragments))
+                            fragments = []
+                        style = part.style
+                        txt._setFont(style.font_name, style.font_size)
+                    fragments.append(part.part)
+                fragments.append(' ')
+            if fragments and fragments[-1] == ' ':
+                fragments.pop()  # last space
+            txt._textOut(''.join(fragments), True)
         self.canv.drawText(txt)
 
     def wrap(self, available_width, available_height):

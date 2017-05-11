@@ -9,11 +9,14 @@ __all__ = ['parse_html']
 
 def parse_html(html, style=None):
     target = ParserEventTarget(style or BlockStyle.default())
-    parser = etree.HTMLParser(
+    parser = etree.XMLParser(
         remove_comments=True,
         target=target
     )
-    return etree.HTML(html, parser)
+    return etree.XML(''.join(('<root>', html, '</root>')), parser)
+
+
+NESTING_ERROR = "'{}' not allowed inside of '{}', maybe a missing close tag?"
 
 
 class Collector:
@@ -26,7 +29,7 @@ class Collector:
         self.flowables = []
 
     def start(self, tag, attrib):
-        assert tag in self.children
+        assert tag in self.children, NESTING_ERROR.format(tag, self.tag)
         collector = self.children[tag](self.style)
         self.flowables.append(collector.flowable)
         return collector
@@ -52,7 +55,7 @@ class ParagraphCollector(Collector):
         self.flowable = Paragraph(self.words, style)
 
     def start(self, tag, attrib):
-        assert tag in self.allowed
+        assert tag in self.allowed, NESTING_ERROR.format(tag, self.tag)
         getattr(self, 'start_'+tag)(attrib)
 
     def start_b(self, attrib):
@@ -123,35 +126,37 @@ class RootCollector(Collector):
     }
 
     def end(self, tag):
-        # RootCollector should never end.
-        raise AssertionError('Extraneous end tag: '+tag)
+        return False
 
 
 class ParserEventTarget:
 
     def __init__(self, style):
         assert isinstance(style, BlockStyle)
-        self.stack = [RootCollector(style)]
+        self.root = RootCollector(style)
+        self.stack = []
         self.tag_stack = []
 
     def start(self, tag, attrib):
         self.tag_stack.append(tag)
-        if tag not in ('html', 'body'):
+        if tag == 'root':
+            assert not self.stack
+            collector = self.root
+        else:
             collector = self.stack[-1].start(tag, attrib)
-            if collector:
-                self.stack.append(collector)
+        if collector:
+            self.stack.append(collector)
 
     def end(self, tag):
         start = self.tag_stack.pop()
         assert start == tag, 'End tag ({}) does not match start tag ({}).'.format(tag, start)
-        if tag not in ('html', 'body'):
-            if self.stack[-1].end(tag):
-                self.stack.pop()
+        if self.stack[-1].end(tag):
+            self.stack.pop()
 
     def data(self, data):
         self.stack[-1].data(data)
 
     def close(self):
-        assert len(self.tag_stack) == 0
+        assert len(self.tag_stack) == 0, 'Unclosed tags: {}'.format(self.tag_stack)
         assert len(self.stack) == 1
         return self.stack[0].flowables
