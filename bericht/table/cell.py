@@ -1,23 +1,36 @@
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
 
-from ..style import CellStyle
-
 __all__ = ('Cell',)
 
 
 class Cell(Flowable):
 
-    def __init__(self, flowables, style=None):
+    def __init__(self, flowables, style):
         super().__init__()
         self.flowables = flowables
         self._vpos = None
         self._heights = None
-        self.style = style or CellStyle.default()
+        self.style = style
 
     def draw(self):
         for flowable, y in zip(self.flowables, self._vpos):
             flowable.drawOn(self.canv, 0, y)
+        self.draw_borders()
+
+    def draw_borders(self):
+        if self.style.border_top_width > 0:
+            self.canv.setStrokeColor(self.style.border_top_color)
+            self.canv.line(0, self.height, self.width, self.height)
+        if self.style.border_right_width > 0:
+            self.canv.setStrokeColor(self.style.border_right_color)
+            self.canv.line(self.width, self.height, self.width, 0)
+        if self.style.border_bottom_width > 0:
+            self.canv.setStrokeColor(self.style.border_bottom_color)
+            self.canv.line(0, 0, self.width, 0)
+        if self.style.border_left_width > 0:
+            self.canv.setStrokeColor(self.style.border_left_color)
+            self.canv.line(0, self.height, 0, 0)
 
     def wrap(self, available_width, available_height):
         self.width = available_width
@@ -77,6 +90,6 @@ class Cell(Flowable):
             raise LayoutError("Splitting cell with flowable {} produced unexpected result.".format(flowable))
 
         return [] if not top_flowables else [
-            Cell(top_flowables),
-            Cell(bottom_flowables)
+            Cell(top_flowables, self.style),
+            Cell(bottom_flowables, self.style)
         ]

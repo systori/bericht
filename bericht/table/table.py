@@ -53,8 +53,8 @@ class Table(Flowable):
             else:
                 # table split cleanly between rows, no need to further split any rows/cells
                 return [
-                    Table(self.rows[:split_at_row+1]),
-                    Table(self.rows[split_at_row-1:])
+                    Table(self.rows[:split_at_row+1], self.style),
+                    Table(self.rows[split_at_row-1:], self.style)
                 ]
 
         top_rows = self.rows[:split_at_row]
@@ -79,6 +79,6 @@ class Table(Flowable):
             raise LayoutError("Splitting row {} produced unexpected result.".format(split_at_row))
 
         return [] if not top_rows else [
-            Table(top_rows),
-            Table(bottom_rows)
+            Table(top_rows, self.style),
+            Table(bottom_rows, self.style)
         ]

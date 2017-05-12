@@ -45,7 +45,7 @@ class Paragraph(Flowable):
     @classmethod
     def from_string(cls, text, style=None):
         style = style or BlockStyle.default()
-        text_style = TextStyle.from_block(style)
+        text_style = TextStyle.from_style(style)
         words = [Word(text_style, word) for word in text.split()]
         return cls(words, style)
 
@@ -54,6 +54,9 @@ class Paragraph(Flowable):
         self.words = words
         self.style = style
         self.lines = None
+
+    def __str__(self):
+        return ' '.join(str(w) for w in self.words)
 
     def draw(self):
         style = TextStyle.from_style(self.style)

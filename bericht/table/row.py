@@ -8,11 +8,11 @@ __all__ = ('Row',)
 
 class Row(Flowable):
 
-    def __init__(self, cells, style=None):
+    def __init__(self, cells, style):
         super().__init__()
         self.cells = cells
         self._widths = None
-        self.style = style or RowStyle()
+        self.style = style
 
     @property
     def columns(self):
@@ -21,6 +21,8 @@ class Row(Flowable):
     def draw(self):
         x = 0
         for cell, width in zip(self.columns, self._widths):
+            if isinstance(cell, Span):
+                continue
             y = 0
             if cell.style.vertical_align == VerticalAlign.top:
                 y = self.height - cell.height
@@ -45,7 +47,7 @@ class Row(Flowable):
                 self._widths.append(cell_width)
 
         for cell, width in zip(self.columns, self._widths):
-            if cell is None:
+            if cell is None or isinstance(cell, Span):
                 continue
             elif isinstance(cell, Cell):
                 _, height = cell.wrapOn(None, width, available_height)
@@ -96,7 +98,7 @@ class Row(Flowable):
                 raise LayoutError("Splitting cell {} produced unexpected result.".format(cell))
 
         return [] if not any(top_half) else [
-            Row(top_half),
-            Row(bottom_half)
+            Row(top_half, self.style),
+            Row(bottom_half, self.style)
         ]
 

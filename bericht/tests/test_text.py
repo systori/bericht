@@ -45,6 +45,8 @@ class TestDraw(TestCase):
         ])
 
     def test_optimal_draw_calls(self):
+        # merge continous fragments of the same style
+        # into a single Tj draw command
         # <p>hello <b>world</b>, systori<b>!</b></p>
         self.assertPDF(Paragraph([
             Word(self.style, 'hello'),

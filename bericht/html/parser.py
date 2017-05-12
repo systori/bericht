@@ -1,3 +1,5 @@
+from string import whitespace
+
 from lxml import etree
 
 from bericht.style import BlockStyle, TextStyle, TableStyle, RowStyle, CellStyle
@@ -45,13 +47,14 @@ class Collector:
 class ParagraphCollector(Collector):
 
     tag = 'p'
-    allowed = ('b', 'i', 'u', 'span', 'br')
+    allowed = ('b', 'strong', 'i', 'u', 'span', 'br')
 
     def __init__(self, style):
         style = BlockStyle.from_style(style)
         super().__init__(style)
         self.styles = [style]
         self.words = []
+        self.word_open = False
         self.flowable = Paragraph(self.words, style)
 
     def start(self, tag, attrib):
@@ -60,9 +63,13 @@ class ParagraphCollector(Collector):
 
     def start_b(self, attrib):
         self.styles.append(self.styles[-1].set(bold=True))
+    start_strong = start_b
 
     def start_i(self, attrib):
         self.styles.append(self.styles[-1].set(italic=True))
+
+    def start_u(self, attrib):
+        self.styles.append(self.styles[-1].set(underline=True))
 
     def start_br(self, attrib):
         self.words.append(Break)
@@ -76,8 +83,17 @@ class ParagraphCollector(Collector):
             self.styles.pop()
 
     def data(self, data):
+        if data[0] in whitespace:
+            self.word_open = False
+        parts = data.split()
+        if not parts:
+            return
+        word_iter = iter(parts)
         style = self.styles[-1]
-        self.words.extend(Word(style, word) for word in data.split())
+        if self.word_open:
+            self.words[-1].add(style, next(word_iter))
+        self.words.extend(Word(style, word) for word in word_iter)
+        self.word_open = data[-1] not in whitespace
 
 
 class CellCollector(Collector):

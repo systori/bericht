@@ -3,3 +3,4 @@ __pycache__/
 .idea/
 dist/
 build/
+example/example.pdf
