@@ -2,15 +2,15 @@ from string import whitespace
 
 from lxml import etree
 
-from bericht.style import BlockStyle, TextStyle, TableStyle, RowStyle, CellStyle
+from bericht.style import Style
 from bericht.text import Paragraph, Word, Break
-from bericht.table import Table, Row, Cell
+from bericht.table import Table, Row, Cell, Span
 
-__all__ = ['parse_html']
+__all__ = ('parse_html',)
 
 
 def parse_html(html, style=None):
-    target = ParserEventTarget(style or BlockStyle.default())
+    target = ParserEventTarget(style or Style.default())
     parser = etree.XMLParser(
         remove_comments=True,
         target=target
@@ -50,7 +50,6 @@ class ParagraphCollector(Collector):
     allowed = ('b', 'strong', 'i', 'u', 'span', 'br')
 
     def __init__(self, style):
-        style = BlockStyle.from_style(style)
         super().__init__(style)
         self.styles = [style]
         self.words = []
@@ -103,7 +102,6 @@ class CellCollector(Collector):
     }
 
     def __init__(self, style):
-        style = CellStyle.from_style(style)
         super().__init__(style)
         self.flowable = Cell(self.flowables, style)
 
@@ -115,7 +113,6 @@ class RowCollector(Collector):
     }
 
     def __init__(self, style):
-        style = RowStyle.from_style(style)
         super().__init__(style)
         self.flowable = Row(self.flowables, style)
 
@@ -127,7 +124,6 @@ class TableCollector(Collector):
     }
 
     def __init__(self, style):
-        style = TableStyle.from_style(style)
         super().__init__(style)
         self.flowable = Table(self.flowables, style)
 
@@ -148,7 +144,6 @@ class RootCollector(Collector):
 class ParserEventTarget:
 
     def __init__(self, style):
-        assert isinstance(style, BlockStyle)
         self.root = RootCollector(style)
         self.stack = []
         self.tag_stack = []

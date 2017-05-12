@@ -1,48 +1,38 @@
-from reportlab.platypus.flowables import Flowable
-from reportlab.platypus.doctemplate import LayoutError
+from enum import Enum
+from bericht.block import Block, LayoutError
 
-__all__ = ('Cell',)
+__all__ = ('Cell', 'Span')
 
 
-class Cell(Flowable):
+class Span(Enum):
+    col = 1
+
+
+class Cell(Block):
 
     def __init__(self, flowables, style):
-        super().__init__()
+        super().__init__(style)
         self.flowables = flowables
         self._vpos = None
         self._heights = None
-        self.style = style
 
     def draw(self):
         for flowable, y in zip(self.flowables, self._vpos):
-            flowable.drawOn(self.canv, 0, y)
+            flowable.drawOn(self.canv, self.content_x, y)
         self.draw_borders()
-
-    def draw_borders(self):
-        if self.style.border_top_width > 0:
-            self.canv.setStrokeColor(self.style.border_top_color)
-            self.canv.line(0, self.height, self.width, self.height)
-        if self.style.border_right_width > 0:
-            self.canv.setStrokeColor(self.style.border_right_color)
-            self.canv.line(self.width, self.height, self.width, 0)
-        if self.style.border_bottom_width > 0:
-            self.canv.setStrokeColor(self.style.border_bottom_color)
-            self.canv.line(0, 0, self.width, 0)
-        if self.style.border_left_width > 0:
-            self.canv.setStrokeColor(self.style.border_left_color)
-            self.canv.line(0, self.height, 0, 0)
 
     def wrap(self, available_width, available_height):
         self.width = available_width
-        self.height = 0
         self._vpos = []
         self._heights = []
+        content_width = self.content_width(available_width)
+        y = self.content_y
         for flowable in reversed(self.flowables):
-            self._vpos.insert(0, self.height)
-            _, height = flowable.wrapOn(None, available_width, available_height)
-            consumed = flowable.getSpaceBefore() + height + flowable.getSpaceAfter()
-            self.height += consumed
+            self._vpos.insert(0, y)
+            _, consumed = flowable.wrapOn(None, content_width, available_height)
+            y += consumed
             self._heights.insert(0, consumed)
+        self.height = self.total_height(sum(self._heights))
         return available_width, self.height
 
     def split(self, available_width, available_height):

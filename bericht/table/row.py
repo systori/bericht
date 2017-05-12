@@ -1,7 +1,7 @@
 from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
-from .cell import Cell
-from ..style import RowStyle, VerticalAlign, Span
+from .cell import Cell, Span
+from ..style import VerticalAlign
 
 __all__ = ('Row',)
 

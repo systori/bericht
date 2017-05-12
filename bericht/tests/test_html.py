@@ -2,7 +2,6 @@ from unittest import TestCase
 
 from bericht.html import *
 from bericht.text import *
-from bericht.style import *
 
 
 class TestParagraphCollector(TestCase):
@@ -11,8 +10,7 @@ class TestParagraphCollector(TestCase):
 
         p = parse_html(
             '<p><b>hello</b> <i>world</i>, <u>bericht</u>! '
-            '<strong>strong</strong> <b><i><u>biu</u></i></b></p>',
-            BlockStyle.default()
+            '<strong>strong</strong> <b><i><u>biu</u></i></b></p>'
         )
 
         self.assertIsInstance(p[0], Paragraph)
@@ -47,7 +45,7 @@ class TestParagraphCollector(TestCase):
         # 1. data("I")
         # 2. data("’ve I’ve")
         # make sure that the end result is only two words
-        p = parse_html("<p>I’ve I’ve</p>", BlockStyle.default())
+        p = parse_html("<p>I’ve I’ve</p>")
         words = p[0].words
         self.assertEqual(len(words), 2)
         self.assertEqual(str(words[0]), 'I’ve')

@@ -4,14 +4,10 @@ from bericht.table import *
 from bericht.text import *
 
 
-block_style = BlockStyle.default()
-table_style = TableStyle.from_style(block_style)
-row_style = RowStyle.from_style(block_style)
-cell_style = CellStyle.from_style(block_style)
-text_style = TextStyle.from_style(block_style)
+S = Style.default()
 
-hello_width = Word(text_style, 'hello 99').width
-hello_height = text_style.leading
+hello_width = Word(S, 'hello 99').width
+hello_height = S.leading
 
 
 def hello(start, end=None, row=None, col=None):
@@ -20,7 +16,7 @@ def hello(start, end=None, row=None, col=None):
 
 
 def hello_p(start, end=None, row=None, col=None):
-    return Paragraph.from_string(hello(start, end, row, col), block_style)
+    return Paragraph.from_string(hello(start, end, row, col), S)
 
 
 def row_lines(row, width, height):
@@ -41,7 +37,7 @@ def row_lines(row, width, height):
 class TestCellWrap(TestCase):
 
     def test_wrap_single_flowable(self):
-        cell = Cell([hello_p(10)], cell_style)
+        cell = Cell([hello_p(10)], S)
         self.assertEqual(cell.wrap(50, 10), (50, 140))
         self.assertEqual(cell.width, 50)
         self.assertEqual(cell.height, 140)
@@ -49,7 +45,7 @@ class TestCellWrap(TestCase):
         self.assertEqual(cell._heights, [140])
 
     def test_wrap_multiple_flowables(self):
-        cell = Cell([hello_p(10), hello_p(20), hello_p(10)], cell_style)
+        cell = Cell([hello_p(10), hello_p(20), hello_p(10)], S)
         self.assertEqual(cell.wrap(50, 10), (50, 560))
         self.assertEqual(cell.width, 50)
         self.assertEqual(cell.height, 560)
@@ -60,13 +56,13 @@ class TestCellWrap(TestCase):
 class TestCellSplit(TestCase):
 
     def test_no_split(self):
-        cell = Cell([hello_p(10)], cell_style)
+        cell = Cell([hello_p(10)], S)
         cells = cell.split(50, 140)
         self.assertEqual(len(cells), 1)
         self.assertEqual(cells[0], cell)
 
     def test_split(self):
-        cell = Cell([hello_p(10)], cell_style)
+        cell = Cell([hello_p(10)], S)
         cells = cell.split(50, 70)
         self.assertEqual(len(cells), 2)
         top, bottom = [str(cell.flowables[0]) for cell in cells]
@@ -77,7 +73,7 @@ class TestCellSplit(TestCase):
 class TestRowWrap(TestCase):
 
     def test_wrap_single_cell_row(self):
-        row = Row([Cell([hello_p(10)], cell_style)], row_style)
+        row = Row([Cell([hello_p(10)], S)], S)
         self.assertEqual(row.wrap(50, 10), (50, 140))
         self.assertEqual(row.width, 50)
         self.assertEqual(row.height, 140)
@@ -85,10 +81,10 @@ class TestRowWrap(TestCase):
 
     def test_wrap_multi_cell_row(self):
         row = Row([
-            Cell([hello_p(10)], cell_style),
-            Cell([hello_p(20)], cell_style),
-            Cell([hello_p(10)], cell_style)
-        ], row_style)
+            Cell([hello_p(10)], S),
+            Cell([hello_p(20)], S),
+            Cell([hello_p(10)], S)
+        ], S)
         self.assertEqual(row.wrap(150, 10), (150, 280))
         self.assertEqual(row.width, 150)
         self.assertEqual(row.height, 280)
@@ -96,10 +92,10 @@ class TestRowWrap(TestCase):
 
     def test_col_span(self):
         row = Row([
-            Cell([hello_p(10)], cell_style),
+            Cell([hello_p(10)], S),
             Span.col,
-            Cell([hello_p(10)], cell_style)
-        ], row_style)
+            Cell([hello_p(10)], S)
+        ], S)
         self.assertEqual(row.wrap(150, 10), (150, 140))
         self.assertEqual(row.width, 150)
         self.assertEqual(row.height, 140)
@@ -110,18 +106,18 @@ class TestRowSplit(TestCase):
 
     def test_no_split(self):
         row = Row([
-            Cell([hello_p(10)], cell_style),
-            Cell([hello_p(10, 20)], cell_style)
-        ], row_style)
+            Cell([hello_p(10)], S),
+            Cell([hello_p(10, 20)], S)
+        ], S)
         rows = row.split(100, 140)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0], row)
 
     def test_split(self):
         row = Row([
-            Cell([hello_p(10)], cell_style),
-            Cell([hello_p(10, 20)], cell_style)
-        ], row_style)
+            Cell([hello_p(10)], S),
+            Cell([hello_p(10, 20)], S)
+        ], S)
         rows = row.split(100, 70)
         self.assertEqual(len(rows), 2)
         top1, top2 = [str(cell.flowables[0]) for cell in rows[0].cells]
@@ -142,10 +138,10 @@ class TestRowSplit(TestCase):
         -------------------------------
         """
         row = Row([
-            Cell([hello_p(3)], cell_style),
-            Cell([hello_p(4)], cell_style),
-            Cell([hello_p(3)], cell_style.set(vertical_align=VerticalAlign.bottom))
-        ], row_style)
+            Cell([hello_p(3)], S),
+            Cell([hello_p(4)], S),
+            Cell([hello_p(3)], S.set(vertical_align=VerticalAlign.bottom))
+        ], S)
         width, height = 3 * hello_width + 1, 2 * hello_height + 1
         rows = row.split(width, height)
         self.assertEqual(len(rows), 2)
@@ -162,15 +158,15 @@ class TestRowSplit(TestCase):
 class TestTableWrap(TestCase):
 
     def test_wrap_single_cell(self):
-        table = Table([Row([Cell([hello_p(10)], cell_style)], row_style)], table_style)
+        table = Table([Row([Cell([hello_p(10)], S)], S)], S)
         self.assertEqual(table.wrap(50, 10), (50, 140))
         self.assertEqual(table._heights, [140])
 
     def test_wrap_uses_tallest_column_in_each_row(self):
         table = Table([
-            Row([Cell([hello_p(10)], cell_style), Cell([hello_p(20)], cell_style)], row_style),
-            Row([Cell([hello_p(20)], cell_style), Cell([hello_p(10)], cell_style)], row_style),
-        ], table_style)
+            Row([Cell([hello_p(10)], S), Cell([hello_p(20)], S)], S),
+            Row([Cell([hello_p(20)], S), Cell([hello_p(10)], S)], S),
+        ], S)
         self.assertEqual(table.wrap(100, 10), (100, 560))
         self.assertEqual(table._heights, [280, 280])
 
@@ -178,13 +174,13 @@ class TestTableWrap(TestCase):
 class TestTableSplit(TestCase):
 
     def test_no_split_single_cell(self):
-        table = Table([Row([Cell([hello_p(10)], cell_style)], row_style)], table_style)
+        table = Table([Row([Cell([hello_p(10)], S)], S)], S)
         tables = table.split(50, 140)
         self.assertEqual(len(tables), 1)
         self.assertEqual(tables[0], table)
 
     def test_split_single_cell(self):
-        table = Table([Row([Cell([hello_p(10)], cell_style)], row_style)], table_style)
+        table = Table([Row([Cell([hello_p(10)], S)], S)], S)
         width, height = 5 * hello_width, hello_height
         tables = table.split(width, height)
         self.assertEqual(len(tables), 2)
@@ -194,10 +190,10 @@ class TestTableSplit(TestCase):
 
     def test_clean_split_between_rows(self):
         rows = [
-            Row([Cell([hello_p(10)], cell_style)], row_style),
-            Row([Cell([hello_p(10)], cell_style)], row_style)
+            Row([Cell([hello_p(10)], S)], S),
+            Row([Cell([hello_p(10)], S)], S)
         ]
-        table = Table(rows, table_style)
+        table = Table(rows, S)
         tables = table.split(50, 140)
         self.assertEqual(len(tables), 2)
         self.assertEqual(tables[0].rows, [rows[0]])
@@ -207,7 +203,7 @@ class TestTableSplit(TestCase):
 class TestBuilder(TestCase):
 
     def test_simple_string_cell(self):
-        builder = TableBuilder(table_style)
+        builder = TableBuilder(S)
         builder.row('hello')
         tbl = builder.table
         self.assertEqual(len(tbl.rows), 1)
@@ -216,7 +212,7 @@ class TestBuilder(TestCase):
         self.assertEqual(row_lines(tbl.rows[0], 100, 100), [['hello']])
 
     def test_span(self):
-        builder = TableBuilder(table_style)
+        builder = TableBuilder(S)
         builder.row('hello', Span.col, 'world')
         tbl = builder.table
         self.assertEqual(len(tbl.rows), 1)
@@ -224,6 +220,6 @@ class TestBuilder(TestCase):
         self.assertEqual(row_lines(tbl.rows[0], 100, 100), [['hello'], Span.col, ['world']])
 
     def test_draw_built_table(self):
-        builder = TableBuilder(table_style)
+        builder = TableBuilder(S)
         builder.row(hello_p(20), Span.col, hello_p(20))
         builder.row(hello_p(20), hello_p(20), hello_p(20))

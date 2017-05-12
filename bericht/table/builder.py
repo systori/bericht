@@ -10,9 +10,6 @@ class TableBuilder:
     def __init__(self, style):
         self.rows = []
         self.style = style
-        self.row_style = RowStyle.from_style(style)
-        self.cell_style = CellStyle.from_style(style)
-        self.p_style = BlockStyle.from_style(style)
 
     def row(self, *row):
         cells = []
@@ -20,13 +17,13 @@ class TableBuilder:
             if isinstance(col, (Cell, Span)):
                 cell = col
             elif isinstance(col, Paragraph):
-                cell = Cell([col], self.cell_style)
+                cell = Cell([col], self.style)
             elif isinstance(col, str):
-                cell = Cell([Paragraph.from_string(col, self.p_style)], self.cell_style)
+                cell = Cell([Paragraph.from_string(col, self.style)], self.style)
             else:
                 raise ValueError
             cells.append(cell)
-        self.rows.append(Row(cells, self.row_style))
+        self.rows.append(Row(cells, self.style))
 
     @property
     def table(self):

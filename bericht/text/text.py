@@ -4,7 +4,7 @@ from collections import namedtuple
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
 from reportlab.platypus.flowables import Flowable
 
-from ..style import TextStyle, BlockStyle
+from ..style import Style
 
 __all__ = ['Paragraph', 'Word', 'Break']
 
@@ -44,9 +44,8 @@ class Paragraph(Flowable):
 
     @classmethod
     def from_string(cls, text, style=None):
-        style = style or BlockStyle.default()
-        text_style = TextStyle.from_style(style)
-        words = [Word(text_style, word) for word in text.split()]
+        style = style or Style.default()
+        words = [Word(style, word) for word in text.split()]
         return cls(words, style)
 
     def __init__(self, words, style):
@@ -59,7 +58,7 @@ class Paragraph(Flowable):
         return ' '.join(str(w) for w in self.words)
 
     def draw(self):
-        style = TextStyle.from_style(self.style)
+        style = self.style
         x, y = 0, self.height - style.leading
         txt = self.canv.beginText(x, y)
         txt.setFont(style.font_name, style.font_size, style.leading)

@@ -3,7 +3,7 @@ from unittest import TestCase
 from reportlab.pdfgen.canvas import Canvas
 
 from bericht.text import *
-from bericht.style import BlockStyle, TextStyle
+from bericht.style import Style
 
 
 class TestMetrics(TestCase):
@@ -19,8 +19,7 @@ class TestMetrics(TestCase):
 class TestDraw(TestCase):
 
     def setUp(self):
-        self.block_style = BlockStyle.default()
-        self.style = TextStyle.from_style(self.block_style)
+        self.style = Style.default()
 
     def draw(self, p):
         p.wrap(200, 100)
@@ -36,7 +35,7 @@ class TestDraw(TestCase):
         self.assertPDF(Paragraph([
             Word(self.style, 'hello'),
             Word(self.style, 'world').add(self.style, '!')
-        ], self.block_style), [
+        ], self.style), [
             "BT",
             "1 0 0 1 0 0 Tm",
             "/F1 12 Tf 14 TL",
@@ -52,7 +51,7 @@ class TestDraw(TestCase):
             Word(self.style, 'hello'),
             Word(self.style.set(bold=True), 'world').add(self.style, ','),
             Word(self.style, 'systori').add(self.style.set(bold=True), '!'),
-        ], self.block_style), [
+        ], self.style), [
             "BT",
             "1 0 0 1 0 0 Tm",
             "/F1 12 Tf 14 TL",
