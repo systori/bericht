@@ -16,12 +16,18 @@ class Cell(Block):
         self._vpos = None
         self._heights = None
 
+    @property
+    def max_width(self):
+        if self.flowables:
+            return self.flowables[0].max_width
+        return 0
+
     def draw(self):
         for flowable, y in zip(self.flowables, self._vpos):
             flowable.drawOn(self.canv, self.content_x, y)
         self.draw_borders()
 
-    def wrap(self, available_width, available_height):
+    def wrap(self, available_width, _=None):
         self.width = available_width
         self._vpos = []
         self._heights = []
@@ -29,7 +35,7 @@ class Cell(Block):
         y = self.content_y
         for flowable in reversed(self.flowables):
             self._vpos.insert(0, y)
-            _, consumed = flowable.wrapOn(None, content_width, available_height)
+            _, consumed = flowable.wrapOn(None, content_width, 0)
             y += consumed
             self._heights.insert(0, consumed)
         self.height = self.total_height(sum(self._heights))
@@ -38,9 +44,10 @@ class Cell(Block):
     def split(self, available_width, available_height):
 
         if self._vpos is None:
-            self.wrap(available_width, available_height)
+            self.wrap(available_width, 0)
 
-        assert self._vpos, "Split called on empty cell."
+        if not self._vpos:
+            return [self]
 
         consumed_height = 0
         split_at_flowable = -1

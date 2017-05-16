@@ -37,7 +37,8 @@ class Word:
         return ''.join(p.part for p in self.parts)
 
 
-Break = object()
+class Break:
+    pass
 
 
 class Paragraph(Flowable):
@@ -56,6 +57,10 @@ class Paragraph(Flowable):
 
     def __str__(self):
         return ' '.join(str(w) for w in self.words)
+
+    @property
+    def max_width(self):
+        return stringWidth(str(self), self.style.font_name, self.style.font_size)
 
     def draw(self):
         style = self.style
@@ -81,7 +86,7 @@ class Paragraph(Flowable):
             txt._textOut(''.join(fragments), True)
         self.canv.drawText(txt)
 
-    def wrap(self, available_width, available_height):
+    def wrap(self, available_width, _=None):
         self.width = available_width
         line = []
         line_width = 0

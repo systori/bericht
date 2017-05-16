@@ -7,10 +7,12 @@ __all__ = ['Table']
 
 class Table(Flowable):
 
-    def __init__(self, rows, style):
+    def __init__(self, columns, rows, style):
         super().__init__()
+        self.columns = columns
         self.rows = rows
         self.style = style
+        self._widths = None
         self._heights = None
 
     def draw(self):
@@ -19,19 +21,30 @@ class Table(Flowable):
             y -= height
             row.drawOn(self.canv, 0, y)
 
-    def wrap(self, available_width, available_height):
+    def fill_stretch_column(self, available_width):
+        stretch_cols = self.columns.count(0)
+        if stretch_cols > 0:
+            fixed_width = sum(self.columns)
+            stretch_width = available_width - fixed_width
+            stretch_col_width = stretch_width / stretch_cols
+            self._widths = [stretch_col_width if w == 0 else w for w in self.columns]
+        else:
+            self._widths = self.columns.copy()
+
+    def wrap(self, available_width, _=None):
+        self.fill_stretch_column(available_width)
         self.width = available_width
         self.height = 0
         self._heights = []
         for row in self.rows:
-            _, height = row.wrapOn(None, available_width, available_height)
+            _, height = row.wrapOn(None, self._widths, 0)
             self._heights.append(height)
             self.height += height
         return available_width, self.height
 
     def split(self, available_width, available_height):
         if self._heights is None:
-            self.wrap(available_width, available_height)
+            self.wrap(available_width, 0)
 
         assert self._heights, "Split called on empty table."
 
@@ -52,8 +65,8 @@ class Table(Flowable):
             else:
                 # table split cleanly between rows, no need to further split any rows/cells
                 return [
-                    Table(self.rows[:split_at_row+1], self.style),
-                    Table(self.rows[split_at_row-1:], self.style)
+                    Table(self.columns, self.rows[:split_at_row+1], self.style),
+                    Table(self.columns, self.rows[split_at_row-1:], self.style)
                 ]
 
         top_rows = self.rows[:split_at_row]
@@ -78,6 +91,6 @@ class Table(Flowable):
             raise LayoutError("Splitting row {} produced unexpected result.".format(split_at_row))
 
         return [] if not top_rows else [
-            Table(top_rows, self.style),
-            Table(bottom_rows, self.style)
+            Table(self.columns, top_rows, self.style),
+            Table(self.columns, bottom_rows, self.style)
         ]

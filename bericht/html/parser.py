@@ -15,7 +15,13 @@ def parse_html(html, style=None):
         remove_comments=True,
         target=target
     )
-    return etree.XML(''.join(('<root>', html, '</root>')), parser)
+    return etree.XML(''.join((
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" '
+        '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
+        '<root>',
+        html,
+        '</root>'
+    )), parser)
 
 
 NESTING_ERROR = "'{}' not allowed inside of '{}', maybe a missing close tag?"
@@ -82,7 +88,7 @@ class ParagraphCollector(Collector):
             self.styles.pop()
 
     def data(self, data):
-        if data[0] in whitespace:
+        if data[0] in whitespace or (self.words and self.words[-1] is Break):
             self.word_open = False
         parts = data.split()
         if not parts:

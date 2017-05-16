@@ -50,3 +50,18 @@ class TestParagraphCollector(TestCase):
         self.assertEqual(len(words), 2)
         self.assertEqual(str(words[0]), 'I’ve')
         self.assertEqual(str(words[1]), 'I’ve')
+
+    def test_br_tag_closes_word(self):
+        p = parse_html("<p>Break tag<br/>should close word.</p>")
+        words = p[0].words
+        self.assertEqual(len(words), 6)
+        self.assertEqual(str(words[1]), 'tag')
+        self.assertEqual(words[2], Break)
+        self.assertEqual(str(words[3]), 'should')
+
+    def test_nbsp_ignored(self):
+        p = parse_html("<p>Non &nbsp; breaking space.</p>")
+        words = p[0].words
+        self.assertEqual(len(words), 3)
+        self.assertEqual(str(words[0]), 'Non')
+        self.assertEqual(str(words[1]), 'breaking')
