@@ -103,7 +103,9 @@ class Row(Flowable):
 
             column_idx += 1
 
-        return [] if not any(top_half) else [
+        cells_empty = all(c in (None, Span.col) for c in top_half)
+
+        return [] if cells_empty else [
             Row(top_half, self.style),
             Row(bottom_half, self.style)
         ]

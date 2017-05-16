@@ -1,4 +1,5 @@
 from unittest import TestCase
+from reportlab.pdfgen.canvas import Canvas
 from bericht.style import *
 from bericht.table import *
 from bericht.text import *
@@ -147,6 +148,17 @@ class TestRowSplit(TestCase):
         self.assertEqual(top2, ["hello 10 hello 11 hello 12 hello 13 hello 14"])
         self.assertEqual(bottom2, ["hello 15 hello 16 hello 17 hello 18 hello 19"])
 
+    def test_split_w_span_should_fail_for_lack_of_vertical_space(self):
+        """
+        Ask row to split but don't give enough height to fit a single
+        line of text.
+        Tests a regression where an empty row was considered not-empty
+        because Span.col evaluated to not None.
+        """
+        row = Row([Cell([hello_p(10)], S), Span.col], S)
+        rows = row.split([hello_width * 3, hello_width * 2], hello_height * .9)
+        self.assertEqual(len(rows), 0)
+
     def test_split_with_bottom_alignment(self):
         """
             top   |         |  bottom
@@ -242,3 +254,50 @@ class TestBuilder(TestCase):
         self.assertEqual(len(row.columns), 3)
         self.assertEqual(len(row.cells), 2)
         self.assertEqual(row_lines(row, [50, 50, 50], 100), [['hello'], ['world']])
+
+    def test_table_with_header_and_spanning(self):
+        builder = TableBuilder([1, 0, 1, 1], S)
+        builder.row('col 1', 'col 2', 'col 3', 'col 4')
+        builder.row('row 1', hello_p(10), Span.col, '99')
+        builder.row('row 1.1', 'stuff', 'more stuff', '11')
+        tbl = builder.table
+
+        tbl.wrap(500)
+        self.assertEqual(len(tbl.rows), 3)
+        row1, row2, row3 = tbl.rows
+        self.assertEqual(len(row1.cells), 4)
+        self.assertEqual(len(row2.cells), 3)
+        self.assertEqual(len(row3.cells), 4)
+        self.assertEqual(row_lines(row1, tbl._widths, 1000), [
+            ['col 1'], ['col 2'], ['col 3'], ['col 4']
+        ])
+        self.assertEqual(row_lines(row2, tbl._widths, 1000), [
+            ['row 1'], [hello(10)], ['99']
+        ])
+        self.assertEqual(row_lines(row3, tbl._widths, 1000), [
+            ['row 1.1'], ['stuff'], ['more stuff'], ['11']
+        ])
+
+        # with table split
+        tbl.wrap(300)
+        tbl1, tbl2 = tbl.split(300, 40)
+        tbl1.wrap(300)
+        row1, row2 = tbl1.rows
+        self.assertEqual(len(row1.cells), 4)
+        self.assertEqual(len(row2.cells), 3)
+        self.assertEqual(row_lines(row1, tbl._widths, 1000), [
+            ['col 1'], ['col 2'], ['col 3'], ['col 4']
+        ])
+        self.assertEqual(row_lines(row2, tbl._widths, 1000), [
+            ['row 1'], [hello(6)], ['99']
+        ])
+        tbl2.wrap(300)
+        row1, row2 = tbl2.rows
+        self.assertEqual(len(row1.cells), 3)
+        self.assertEqual(len(row2.cells), 4)
+        self.assertEqual(row_lines(row1, tbl._widths, 1000), [
+            [], [hello(6, 10)], []
+        ])
+        self.assertEqual(row_lines(row2, tbl._widths, 1000), [
+            ['row 1.1'], ['stuff'], ['more stuff'], ['11']
+        ])
