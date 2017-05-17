@@ -1,29 +1,28 @@
-from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.doctemplate import LayoutError
-from .cell import Cell, Span
+from ..block import Block
 from ..style import VerticalAlign
+from .cell import Span
 
 __all__ = ('Row',)
 
 
-class Row(Flowable):
+class Row(Block):
 
     def __init__(self, columns, style):
-        super().__init__()
+        super().__init__(style)
         self.columns = columns
         self.column_widths = None
         self.column_count = len(columns)
         self.cells = None
         self.cell_widths = None
-        self.style = style
 
     def draw(self):
         x = 0
         for cell, width in zip(self.cells, self.cell_widths):
             if cell:
-                y = 0
+                y = self.content_y
                 if cell.style.vertical_align == VerticalAlign.top:
-                    y = self.height - cell.height
+                    y = (self.height - self.content_top_offset) - cell.height
                 cell.drawOn(self.canv, x, y)
             x += width
 
@@ -50,6 +49,7 @@ class Row(Flowable):
                 _, height = cell.wrapOn(None, cell_width, 0)
                 self.height = max(self.height, height)
 
+        self.height = self.total_height(self.height)
         return self.width, self.height
 
     def split(self, column_widths, available_height):

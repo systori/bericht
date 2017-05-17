@@ -61,8 +61,8 @@ class Cell(Block):
                 return [self]
             else:
                 return [
-                    Cell(self.flowables[:split_at_flowable+1]),
-                    Cell(self.flowables[split_at_flowable-1:])
+                    Cell(self.flowables[:split_at_flowable+1], self.style),
+                    Cell(self.flowables[split_at_flowable-1:], self.style)
                 ]
 
         top_flowables = self.flowables[:split_at_flowable]

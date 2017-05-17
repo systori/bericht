@@ -4,7 +4,7 @@ from collections import namedtuple
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
 from reportlab.platypus.flowables import Flowable
 
-from ..style import Style
+from ..style import Style, TextAlign
 
 __all__ = ['Paragraph', 'Word', 'Break']
 
@@ -54,6 +54,7 @@ class Paragraph(Flowable):
         self.words = words
         self.style = style
         self.lines = None
+        self.widths = None
 
     def __str__(self):
         return ' '.join(str(w) for w in self.words)
@@ -64,10 +65,12 @@ class Paragraph(Flowable):
 
     def draw(self):
         style = self.style
-        x, y = 0, self.height - style.leading
+        x, y, alignment = 0, self.height - style.leading, style.text_align
         txt = self.canv.beginText(x, y)
         txt.setFont(style.font_name, style.font_size, style.leading)
-        for line in self.lines:
+        for line, width in zip(self.lines, self.widths):
+            if alignment == TextAlign.right:
+                txt.setXPos(self.width - width)
             fragments = []
             for word in line:
                 if word is Break:
@@ -89,8 +92,8 @@ class Paragraph(Flowable):
     def wrap(self, available_width, _=None):
         self.width = available_width
         line = []
-        line_width = 0
         self.lines = [line]
+        self.widths = [0]
         if not self.words:
             return 0, 0
 
@@ -99,18 +102,19 @@ class Paragraph(Flowable):
 
             if word is Break:
                 line = [Break]
-                line_width = 0
                 self.lines.append(line)
+                self.widths.append(0)
                 continue
 
             word_width = word.width
-            if line_width+word_width > available_width:
+            if self.widths[-1]+word_width > available_width:
                 line = []
-                line_width = 0
                 self.lines.append(line)
+                self.widths.append(0)
 
-            line_width += word_width + space_width
+            self.widths[-1] += word_width + space_width
             line.append(word)
+
         self.height = len(self.lines) * self.style.leading
         return available_width, self.height
 

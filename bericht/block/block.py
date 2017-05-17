@@ -20,6 +20,11 @@ class Block(Flowable):
         s = self.style
         return s.margin_bottom + s.border_bottom_width + s.padding_bottom
 
+    @property
+    def content_top_offset(self):
+        s = self.style
+        return s.margin_top + s.border_top_width + s.padding_top
+
     def content_width(self, total_width):
         s = self.style
         return total_width - (
