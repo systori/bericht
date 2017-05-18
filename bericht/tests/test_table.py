@@ -7,7 +7,6 @@ from bericht.text import *
 
 
 S = Style.default()
-
 hello_width = Word(S, 'hello 99').width
 hello_height = S.leading
 
@@ -18,7 +17,7 @@ def hello(start, end=None, row=None, col=None):
 
 
 def hello_p(start, end=None, row=None, col=None):
-    return Paragraph.from_string(hello(start, end, row, col), S)
+    return para(hello(start, end, row, col))
 
 
 def row_lines(row, width, height):
@@ -30,8 +29,13 @@ def row_lines(row, width, height):
             continue
         lines = []
         for p in cell.content:
-            for line in p.content:
-                lines.append(' '.join(str(w) for w in line))
+            if isinstance(p, Paragraph):
+                for line in p.content:
+                    lines.append(' '.join(str(w) for w in line))
+            elif isinstance(p, Text):
+                lines.append(p.text)
+            else:
+                raise ValueError
         cells.append(lines)
     return cells
 
@@ -142,11 +146,46 @@ class TestCell(TestCase):
 
 class TestRow(TestCase):
 
+    def test_frame(self):
+        # rows only care about border_top and
+        # border_bottom when in collapsed mode,
+        # everything else is ignored
+        frame = S.set(
+            margin_top=1,
+            margin_right=2,
+            margin_bottom=3,
+            margin_left=4,
+            border_top_width=5,
+            border_right_width=6,
+            border_bottom_width=7,
+            border_left_width=8,
+            padding_top=9,
+            padding_right=10,
+            padding_bottom=11,
+            padding_left=12,
+        )
+        row = Row([], frame)
+        row.collapsed = False
+        self.assertEqual(row.frame_top, 0)
+        self.assertEqual(row.frame_right, 0)
+        self.assertEqual(row.frame_bottom, 0)
+        self.assertEqual(row.frame_left, 0)
+        self.assertEqual(row.frame_width, 0)
+        self.assertEqual(row.frame_height, 0)
+        row.collapsed = True
+        self.assertEqual(row.frame_top, 5)
+        self.assertEqual(row.frame_right, 0)
+        self.assertEqual(row.frame_bottom, 7)
+        self.assertEqual(row.frame_left, 0)
+        self.assertEqual(row.frame_width, 0)
+        self.assertEqual(row.frame_height, 12)
+
     def test_wrap(self):
         row = Row(
             [Cell([hello_p(10)], S)],
             S.set(border_top_width=3, border_bottom_width=3)
         )
+        row.collapsed = True
         self.assertEqual(row.wrap([50]), (50, 140 + 6))
         self.assertEqual(row.width, 50)
         self.assertEqual(row.height, 140 + 6)
@@ -264,32 +303,29 @@ class TestRow(TestCase):
         self.assertEqual(bottom3, ["hello 1", "hello 2"])
 
 
-class TestTableWrap(TestCase):
+class TestTable(TestCase):
 
     def test_wrap_single_cell(self):
-        table = Table([0], [Row([Cell([hello_p(10)], S)], S)], S)
+        table = Table([1], [0], [Row([Cell([hello_p(10)], S)], S)], S)
         self.assertEqual(table.wrap(50, 10), (50, 140))
         self.assertEqual(table.content_heights, [140])
 
     def test_wrap_uses_tallest_column_in_each_row(self):
-        table = Table([0, 0], [
+        table = Table([1, 1], [0, 0], [
             Row([Cell([hello_p(10)], S), Cell([hello_p(20)], S)], S),
             Row([Cell([hello_p(20)], S), Cell([hello_p(10)], S)], S),
         ], S)
         self.assertEqual(table.wrap(100, 10), (100, 560))
         self.assertEqual(table.content_heights, [280, 280])
 
-
-class TestTableSplit(TestCase):
-
     def test_no_split_single_cell(self):
-        table = Table([0], [Row([Cell([hello_p(10)], S)], S)], S)
+        table = Table([1], [0], [Row([Cell([hello_p(10)], S)], S)], S)
         tables = table.split(50, 140)
         self.assertEqual(len(tables), 1)
         self.assertEqual(tables[0], table)
 
     def test_split_single_cell(self):
-        table = Table([0], [Row([Cell([hello_p(10)], S)], S)], S)
+        table = Table([1], [0], [Row([Cell([hello_p(10)], S)], S)], S)
         width, height = 5 * hello_width, hello_height
         tables = table.split(width, height)
         self.assertEqual(len(tables), 2)
@@ -302,7 +338,7 @@ class TestTableSplit(TestCase):
             Row([Cell([hello_p(10)], S)], S),
             Row([Cell([hello_p(10)], S)], S)
         ]
-        table = Table([0], rows, S)
+        table = Table([1], [0], rows, S)
         tables = table.split(50, 140)
         self.assertEqual(len(tables), 2)
         self.assertEqual(tables[0].content, [rows[0]])
@@ -311,47 +347,58 @@ class TestTableSplit(TestCase):
 
 class TestBuilder(TestCase):
 
-    def test_simple_string_cell(self):
-        builder = TableBuilder([0], S)
-        builder.row('hello')
+    def test_basic(self):
+        builder = TableBuilder([1, 0, 0], S)
+        builder.row(para('hello'), 'world', 99)
         tbl = builder.table
         tbl.wrap(100)
-        self.assertEqual(len(tbl.rows), 1)
-        self.assertEqual(len(tbl.rows[0].cells), 1)
-        self.assertEqual(len(tbl.rows[0].cells[0].flowables), 1)
-        self.assertEqual(row_lines(tbl.rows[0], [100], 100), [['hello']])
+        rows = tbl.content
+        self.assertEqual(len(rows), 1)
+        cells = rows[0].content
+        self.assertEqual(len(cells), 3)
+        self.assertIsInstance(cells[0].content[0], Paragraph)
+        self.assertIsInstance(cells[1].content[0], Text)
+        self.assertIsInstance(cells[2].content[0], Text)
+        self.assertEqual(row_lines(tbl.content[0], tbl.content_widths, 100), [
+            ['hello'], ['world'], ['99']
+        ])
 
     def test_span(self):
-        builder = TableBuilder([0, 1, 1], S)
+        builder = TableBuilder([1, 1, 1], S)
         builder.row('hello', Span.col, 'world')
         tbl = builder.table
         tbl.wrap(150)
-        self.assertEqual(len(tbl.rows), 1)
-        row = tbl.rows[0]
+        rows = tbl.content
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
         self.assertEqual(len(row.columns), 3)
-        self.assertEqual(len(row.cells), 2)
-        self.assertEqual(row_lines(row, [50, 50, 50], 100), [['hello'], ['world']])
+        self.assertEqual(len(row.content), 2)
+        self.assertEqual(row.content_widths, [100, 50])
+        self.assertEqual(row_lines(row, tbl.content_widths, 100), [
+            ['hello'], ['world']
+        ])
 
     def test_table_with_header_and_spanning(self):
-        builder = TableBuilder([1, 0, 1, 1], S)
+        builder = TableBuilder([0, 1, 0, 0], S)
         builder.row('col 1', 'col 2', 'col 3', 'col 4')
-        builder.row('row 1', hello_p(10), Span.col, '99')
-        builder.row('row 1.1', 'stuff', 'more stuff', '11')
+        builder.row('row 1', hello_p(10), Span.col, 99)
+        builder.row('row 1.1', 'stuff', 'more stuff', 11)
         tbl = builder.table
 
         tbl.wrap(500)
-        self.assertEqual(len(tbl.rows), 3)
-        row1, row2, row3 = tbl.rows
-        self.assertEqual(len(row1.cells), 4)
-        self.assertEqual(len(row2.cells), 3)
-        self.assertEqual(len(row3.cells), 4)
-        self.assertEqual(row_lines(row1, tbl._widths, 1000), [
+        rows = tbl.content
+        self.assertEqual(len(rows), 3)
+        row1, row2, row3 = rows
+        self.assertEqual(len(row1.content), 4)
+        self.assertEqual(len(row2.content), 3)
+        self.assertEqual(len(row3.content), 4)
+        self.assertEqual(row_lines(row1, tbl.content_widths, 1000), [
             ['col 1'], ['col 2'], ['col 3'], ['col 4']
         ])
-        self.assertEqual(row_lines(row2, tbl._widths, 1000), [
+        self.assertEqual(row_lines(row2, tbl.content_widths, 1000), [
             ['row 1'], [hello(10)], ['99']
         ])
-        self.assertEqual(row_lines(row3, tbl._widths, 1000), [
+        self.assertEqual(row_lines(row3, tbl.content_widths, 1000), [
             ['row 1.1'], ['stuff'], ['more stuff'], ['11']
         ])
 
@@ -359,22 +406,22 @@ class TestBuilder(TestCase):
         tbl.wrap(300)
         tbl1, tbl2 = tbl.split(300, 40)
         tbl1.wrap(300)
-        row1, row2 = tbl1.rows
-        self.assertEqual(len(row1.cells), 4)
-        self.assertEqual(len(row2.cells), 3)
-        self.assertEqual(row_lines(row1, tbl._widths, 1000), [
+        row1, row2 = tbl1.content
+        self.assertEqual(len(row1.content), 4)
+        self.assertEqual(len(row2.content), 3)
+        self.assertEqual(row_lines(row1, tbl.content_widths, 1000), [
             ['col 1'], ['col 2'], ['col 3'], ['col 4']
         ])
-        self.assertEqual(row_lines(row2, tbl._widths, 1000), [
+        self.assertEqual(row_lines(row2, tbl.content_widths, 1000), [
             ['row 1'], [hello(6)], ['99']
         ])
         tbl2.wrap(300)
-        row1, row2 = tbl2.rows
-        self.assertEqual(len(row1.cells), 3)
-        self.assertEqual(len(row2.cells), 4)
-        self.assertEqual(row_lines(row1, tbl._widths, 1000), [
+        row1, row2 = tbl2.content
+        self.assertEqual(len(row1.content), 3)
+        self.assertEqual(len(row2.content), 4)
+        self.assertEqual(row_lines(row1, tbl.content_widths, 1000), [
             [], [hello(6, 10)], []
         ])
-        self.assertEqual(row_lines(row2, tbl._widths, 1000), [
+        self.assertEqual(row_lines(row2, tbl.content_widths, 1000), [
             ['row 1.1'], ['stuff'], ['more stuff'], ['11']
         ])

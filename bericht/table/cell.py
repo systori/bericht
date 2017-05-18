@@ -54,7 +54,8 @@ class Cell(Block):
 
         for block, height in zip(self.content, self.content_heights):
             y -= height
-            block.drawOn(self.canvas, x, y)
+            block.drawOn(self.canv, x, y)
+        self.draw_border()
 
     def wrap(self, available_width, _=None):
         self.width = available_width
@@ -82,15 +83,16 @@ class Cell(Block):
             consumed_height = self.height - (sum(self.content_heights) + self.frame_bottom)
 
         if consumed_height >= available_height:
+            # border and padding don't even fit
             return []
 
-        split_at_block, block_height = -1, 0
-        for split_at_block, block_height in enumerate(self.content_heights):
-            consumed_height += block_height
+        split_at_block, split_block_height = -1, 0
+        for split_at_block, split_block_height in enumerate(self.content_heights):
+            consumed_height += split_block_height
             if consumed_height >= available_height:
                 break
 
-        if consumed_height == available_height:
+        if consumed_height <= available_height:
             if len(self.content) == 1 or len(self.content)-1 == split_at_block:
                 return [self]
             else:
@@ -99,14 +101,14 @@ class Cell(Block):
                     Cell(self.content[split_at_block-1:], self.style, was_split=True)
                 ]
 
-        top_content = self.content[:split_at_block]
+        top_content = list(self.content[:split_at_block])
         block = self.content[split_at_block]
-        bottom_content = self.content[split_at_block+1:]
+        bottom_content = list(self.content[split_at_block+1:])
 
         split = block.splitOn(
             None,
             available_width - self.frame_width,
-            available_height - (consumed_height - block_height)
+            available_height - (consumed_height - split_block_height)
         )
 
         if not split:

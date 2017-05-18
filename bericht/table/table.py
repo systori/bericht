@@ -6,30 +6,40 @@ __all__ = ['Table']
 
 class Table(Block):
 
-    def __init__(self, columns, rows, style, was_split=False):
+    __slots__ = ('ratios', 'columns',)
+
+    def __init__(self, ratios, columns, rows, style, was_split=False):
         super().__init__(rows, style, was_split)
+        self.ratios = ratios
         self.columns = columns
 
     def draw(self):
-        y = self.height
-        for row, height in zip(self.rows, self._heights):
+        x = self.frame_left
+        y = self.height - self.frame_top
+        for row, height in zip(self.content, self.content_heights):
             y -= height
-            row.drawOn(self.canv, 0, y)
+            row.drawOn(self.canv, x, y)
+        self.draw_border()
 
-    def fill_stretch_column(self, available_width):
-        stretch_cols = self.columns.count(0)
-        if stretch_cols > 0:
-            fixed_width = sum(self.columns)
-            stretch_width = available_width - fixed_width
-            stretch_col_width = stretch_width / stretch_cols
-            self.content_widths = [stretch_col_width if w == 0 else w for w in self.columns]
-        else:
+    def calculate_ratio_columns(self, available_width):
+        units = sum(self.ratios)
+        if units == 0:
             self.content_widths = self.columns.copy()
+        else:
+            fixed = sum(self.columns)
+            unit_size = (available_width - fixed) / units
+            widths = []
+            for ratio, column in zip(self.ratios, self.columns):
+                if ratio == 0:
+                    widths.append(column)
+                else:
+                    widths.append(ratio * unit_size)
+            self.content_widths = widths
 
     def wrap(self, available_width, _=None):
-        self.fill_stretch_column(available_width)
+        self.calculate_ratio_columns(available_width - self.frame_width)
         self.width = available_width
-        self.height = 0
+        self.height = self.frame_height
         self.content_heights = []
         for row in self.content:
             _, height = row.wrap(self.content_widths)
@@ -44,12 +54,9 @@ class Table(Block):
         assert self.content_heights, "Split called on empty table."
 
         split_at_row = -1
-        split_row_height = 0
-        consumed_height = 0
-        for height in self.content_heights:
-            split_at_row += 1
-            split_row_height = height
-            consumed_height += height
+        split_row_height = consumed_height = 0
+        for split_at_row, split_row_height in enumerate(self.content_heights):
+            consumed_height += split_row_height
             if consumed_height >= available_height:
                 break
 
@@ -60,8 +67,8 @@ class Table(Block):
             else:
                 # table split cleanly between rows, no need to further split any rows/cells
                 return [
-                    Table(self.columns, self.content[:split_at_row+1], self.style, was_split=True),
-                    Table(self.columns, self.content[split_at_row-1:], self.style, was_split=True)
+                    Table(self.ratios, self.columns, self.content[:split_at_row+1], self.style, was_split=True),
+                    Table(self.ratios, self.columns, self.content[split_at_row-1:], self.style, was_split=True)
                 ]
 
         top_rows = self.content[:split_at_row]
@@ -86,6 +93,6 @@ class Table(Block):
             raise LayoutError("Splitting row {} produced unexpected result.".format(split_at_row))
 
         return [] if not top_rows else [
-            Table(self.columns, top_rows, self.style, was_split=True),
-            Table(self.columns, bottom_rows, self.style, was_split=True)
+            Table(self.ratios, self.columns, top_rows, self.style, was_split=True),
+            Table(self.ratios, self.columns, bottom_rows, self.style, was_split=True)
         ]

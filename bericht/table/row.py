@@ -1,6 +1,6 @@
 from bericht.block import Block, LayoutError
 from ..style import VerticalAlign
-from .cell import Span
+from .cell import Cell, Span
 
 __all__ = ('Row',)
 
@@ -40,12 +40,9 @@ class Row(Block):
 
     def draw(self):
         x = 0
-        for cell, width in zip(self.cells, self.cell_widths):
-            if cell:
-                y = self.content_y
-                if cell.style.vertical_align == VerticalAlign.top:
-                    y = (self.height - self.content_top_offset) - cell.height
-                cell.drawOn(self.canv, x, y)
+        y = self.frame_bottom
+        for cell, width in zip(self.content, self.content_widths):
+            cell.drawOn(self.canv, x, y)
             x += width
 
     def wrap(self, column_widths, _=None):
@@ -93,30 +90,23 @@ class Row(Block):
         column_idx = 0
         for cell, width in zip(self.content, self.content_widths):
 
-            if cell is None:
+            split = cell.splitOn(None, width, content_height)
 
-                top_half.append(None)
-                bottom_half.append(None)
-
+            if not split:
+                # cell could not be split,
+                # move entirely to bottom half
+                top_half.append(Cell([], cell.style))
+                bottom_half.append(cell)
+            elif len(split) == 1:
+                # cell completely fits in top half,
+                # add placeholder to bottom half
+                top_half.append(cell)
+                bottom_half.append(Cell([], cell.style))
+            elif len(split) == 2:
+                top_half.append(split[0])
+                bottom_half.append(split[1])
             else:
-
-                split = cell.splitOn(None, width, content_height)
-
-                if not split:
-                    # cell could not be split,
-                    # move entirely to bottom half
-                    top_half.append(None)
-                    bottom_half.append(cell)
-                elif len(split) == 1:
-                    # cell completely fits in top half,
-                    # add placeholder to bottom half
-                    top_half.append(cell)
-                    bottom_half.append(None)
-                elif len(split) == 2:
-                    top_half.append(split[0])
-                    bottom_half.append(split[1])
-                else:
-                    raise LayoutError("Splitting cell {} produced unexpected result.".format(cell))
+                raise LayoutError("Splitting cell {} produced unexpected result.".format(cell))
 
             # self.cells does not include Span.col, so we need to add it back in
             while column_idx+1 < self.column_count and self.columns[column_idx+1] == Span.col:
@@ -126,7 +116,7 @@ class Row(Block):
 
             column_idx += 1
 
-        cells_empty = all(c in (None, Span.col) for c in top_half)
+        cells_empty = all(c == Span.col or c.empty for c in top_half)
 
         return [] if cells_empty else [
             Row(top_half, self.style, was_split=True),
