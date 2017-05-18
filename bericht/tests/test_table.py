@@ -1,5 +1,6 @@
 from unittest import TestCase
 from reportlab.pdfgen.canvas import Canvas
+
 from bericht.style import *
 from bericht.table import *
 from bericht.text import *
@@ -23,65 +24,136 @@ def hello_p(start, end=None, row=None, col=None):
 def row_lines(row, width, height):
     row.wrap(width, height)
     cells = []
-    for cell in row.cells:
+    for cell in row.content:
         if isinstance(cell, Span):
             cells.append(cell)
             continue
         lines = []
-        for p in cell.flowables:
-            for line in p.lines:
+        for p in cell.content:
+            for line in p.content:
                 lines.append(' '.join(str(w) for w in line))
         cells.append(lines)
     return cells
 
 
-class TestCellWrap(TestCase):
+class RecordingParagraph(Paragraph):
 
-    def test_wrap_single_flowable(self):
-        cell = Cell([hello_p(10)], S)
-        self.assertEqual(cell.wrap(50), (50, 140))
+    def __init__(self, words, style):
+        super().__init__(words, style)
+        self.draw_call = None
+
+    def drawOn(self, canvas, x, y):
+        self.draw_call = (x, y)
+
+
+class TestCell(TestCase):
+
+    def setUp(self):
+        self.text = 'hello'
+        self.p = RecordingParagraph.from_string(self.text, S)
+        self.width = self.p.width
+        self.height = S.leading
+
+    def test_frame(self):
+        frame = S.set(
+            margin_top=1,
+            margin_right=2,
+            margin_bottom=3,
+            margin_left=4,
+            border_top_width=5,
+            border_right_width=6,
+            border_bottom_width=7,
+            border_left_width=8,
+            padding_top=9,
+            padding_right=10,
+            padding_bottom=11,
+            padding_left=12,
+        )
+        cell = Cell([], frame)
+        cell.collapsed = False
+        self.assertEqual(cell.frame_top, 15)
+        self.assertEqual(cell.frame_right, 18)
+        self.assertEqual(cell.frame_bottom, 21)
+        self.assertEqual(cell.frame_left, 24)
+        self.assertEqual(cell.frame_width, 42)
+        self.assertEqual(cell.frame_height, 36)
+        cell.collapsed = True
+        self.assertEqual(cell.frame_top, 11.5)
+        self.assertEqual(cell.frame_right, 13)
+        self.assertEqual(cell.frame_bottom, 14.5)
+        self.assertEqual(cell.frame_left, 16)
+        self.assertEqual(cell.frame_width, 29)
+        self.assertEqual(cell.frame_height, 26)
+
+    def test_wrap(self):
+        cell = Cell([self.p], S.set(padding_top=3, padding_bottom=3))
+        self.assertEqual(cell.wrap(50), (50, self.height + 6))
         self.assertEqual(cell.width, 50)
-        self.assertEqual(cell.height, 140)
-        self.assertEqual(cell._vpos, [0])
-        self.assertEqual(cell._heights, [140])
+        self.assertEqual(cell.height, self.height + 6)
+        self.assertEqual(cell.content_heights, [self.height])
 
     def test_wrap_multiple_flowables(self):
-        cell = Cell([hello_p(10), hello_p(20), hello_p(10)], S)
-        self.assertEqual(cell.wrap(50), (50, 560))
+        cell = Cell(
+            [hello_p(10), hello_p(20), hello_p(10)],
+            S.set(padding_top=3, padding_bottom=3))
+        self.assertEqual(cell.wrap(50), (50, 560 + 6))
         self.assertEqual(cell.width, 50)
-        self.assertEqual(cell.height, 560)
-        self.assertEqual(cell._vpos, [420, 140, 0])
-        self.assertEqual(cell._heights, [140, 280, 140])
-
-
-class TestCellSplit(TestCase):
+        self.assertEqual(cell.height, 560 + 6)
+        self.assertEqual(cell.content_heights, [140, 280, 140])
 
     def test_no_split(self):
         cell = Cell([hello_p(10)], S)
         cells = cell.split(50, 140)
         self.assertEqual(len(cells), 1)
         self.assertEqual(cells[0], cell)
+        self.assertEqual(cells[0].was_split, False)
 
     def test_split(self):
         cell = Cell([hello_p(10)], S)
         cells = cell.split(50, 70)
         self.assertEqual(len(cells), 2)
-        top, bottom = [str(cell.flowables[0]) for cell in cells]
+        self.assertEqual(cells[0].was_split, True)
+        self.assertEqual(cells[1].was_split, True)
+        top, bottom = [str(cell.content[0]) for cell in cells]
         self.assertEqual(top, "hello 0 hello 1 hello 2 hello 3 hello 4")
         self.assertEqual(bottom, "hello 5 hello 6 hello 7 hello 8 hello 9")
 
+    def test_draw(self):
+        canvas = Canvas(None)
+        p1 = RecordingParagraph.from_string(self.text, S)
+        p2 = RecordingParagraph.from_string(self.text, S)
+        cell = Cell([p1, p2], S.set(margin_left=1, padding_top=3, padding_bottom=3))
+        # natural height, aligned top
+        cell.wrap(30)
+        cell.drawOn(canvas, 0, 0)
+        self.assertEqual(p1.draw_call, (1, 17))
+        self.assertEqual(p2.draw_call, (1, 3))
+        # force different height
+        cell.height = 100
+        cell.drawOn(canvas, 0, 0)
+        self.assertEqual(p1.draw_call, (1, 83))
+        self.assertEqual(p2.draw_call, (1, 69))
+        # height 100 and aligned to bottom
+        cell.style = cell.style.set(vertical_align=VerticalAlign.bottom)
+        cell.drawOn(canvas, 0, 0)
+        self.assertEqual(p1.draw_call, (1, 17))
+        self.assertEqual(p2.draw_call, (1, 3))
 
-class TestRowWrap(TestCase):
 
-    def test_wrap_single_cell_row(self):
-        row = Row([Cell([hello_p(10)], S)], S)
-        self.assertEqual(row.wrap([50]), (50, 140))
+class TestRow(TestCase):
+
+    def test_wrap(self):
+        row = Row(
+            [Cell([hello_p(10)], S)],
+            S.set(border_top_width=3, border_bottom_width=3)
+        )
+        self.assertEqual(row.wrap([50]), (50, 140 + 6))
         self.assertEqual(row.width, 50)
-        self.assertEqual(row.height, 140)
-        self.assertEqual(row.cell_widths, [50])
+        self.assertEqual(row.height, 140 + 6)
+        self.assertEqual(row.content_widths, [50])
         self.assertEqual(row.column_widths, [50])
 
-    def test_wrap_multi_cell_row(self):
+    def test_wrap_equalized_height(self):
         row = Row([
             Cell([hello_p(10)], S),
             Cell([hello_p(20)], S),
@@ -90,10 +162,14 @@ class TestRowWrap(TestCase):
         self.assertEqual(row.wrap([50, 50, 50]), (150, 280))
         self.assertEqual(row.width, 150)
         self.assertEqual(row.height, 280)
-        self.assertEqual(row.cell_widths, [50, 50, 50])
+        # override individual cell heights to match the tallest cell
+        self.assertEqual(row.content[0].height, 280)
+        self.assertEqual(row.content[1].height, 280)
+        self.assertEqual(row.content[2].height, 280)
+        self.assertEqual(row.content_widths, [50, 50, 50])
         self.assertEqual(row.column_widths, [50, 50, 50])
 
-    def test_col_span(self):
+    def test_wrap_with_span(self):
         row = Row([
             Cell([hello_p(10)], S),
             Span.col,
@@ -102,11 +178,10 @@ class TestRowWrap(TestCase):
         self.assertEqual(row.wrap([50, 50, 50]), (150, 140))
         self.assertEqual(row.width, 150)
         self.assertEqual(row.height, 140)
-        self.assertEqual(row.cell_widths, [100, 50])
+        self.assertEqual(row.content[0].height, 140)
+        self.assertEqual(row.content[1].height, 140)
+        self.assertEqual(row.content_widths, [100, 50])
         self.assertEqual(row.column_widths, [50, 50, 50])
-
-
-class TestRowSplit(TestCase):
 
     def test_no_split(self):
         row = Row([
@@ -125,6 +200,8 @@ class TestRowSplit(TestCase):
         width, height = [hello_width * 5, hello_width * 6], hello_height
         rows = row.split(width, height)
         self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].was_split, True)
+        self.assertEqual(rows[1].was_split, True)
         top1, top2 = row_lines(rows[0], width, height)
         bottom1, bottom2 = row_lines(rows[1], width, height)
         self.assertEqual(top1, ["hello 0 hello 1 hello 2 hello 3 hello 4"])
@@ -192,7 +269,7 @@ class TestTableWrap(TestCase):
     def test_wrap_single_cell(self):
         table = Table([0], [Row([Cell([hello_p(10)], S)], S)], S)
         self.assertEqual(table.wrap(50, 10), (50, 140))
-        self.assertEqual(table._heights, [140])
+        self.assertEqual(table.content_heights, [140])
 
     def test_wrap_uses_tallest_column_in_each_row(self):
         table = Table([0, 0], [
@@ -200,7 +277,7 @@ class TestTableWrap(TestCase):
             Row([Cell([hello_p(20)], S), Cell([hello_p(10)], S)], S),
         ], S)
         self.assertEqual(table.wrap(100, 10), (100, 560))
-        self.assertEqual(table._heights, [280, 280])
+        self.assertEqual(table.content_heights, [280, 280])
 
 
 class TestTableSplit(TestCase):
@@ -216,7 +293,7 @@ class TestTableSplit(TestCase):
         width, height = 5 * hello_width, hello_height
         tables = table.split(width, height)
         self.assertEqual(len(tables), 2)
-        top, bottom = [row_lines(table.rows[0], [width], height)[0] for table in tables]
+        top, bottom = [row_lines(table.content[0], [width], height)[0] for table in tables]
         self.assertEqual(top, ["hello 0 hello 1 hello 2 hello 3 hello 4"])
         self.assertEqual(bottom, ["hello 5 hello 6 hello 7 hello 8 hello 9"])
 
@@ -228,8 +305,8 @@ class TestTableSplit(TestCase):
         table = Table([0], rows, S)
         tables = table.split(50, 140)
         self.assertEqual(len(tables), 2)
-        self.assertEqual(tables[0].rows, [rows[0]])
-        self.assertEqual(tables[1].rows, [rows[1]])
+        self.assertEqual(tables[0].content, [rows[0]])
+        self.assertEqual(tables[1].content, [rows[1]])
 
 
 class TestBuilder(TestCase):

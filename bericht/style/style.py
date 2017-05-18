@@ -4,11 +4,10 @@ from collections import namedtuple
 from reportlab.lib.fonts import tt2ps
 from reportlab.lib.colors import Color, black
 
-from .utils import cache_styles
-
 
 __all__ = (
-    'Style', 'TextAlign', 'VerticalAlign', 'BorderStyle',
+    'Style', 'TextAlign', 'VerticalAlign',
+    'BorderStyle', 'BorderCollapse',
 )
 
 
@@ -30,7 +29,14 @@ class BorderStyle(Enum):
     dashed = 2
 
 
-@cache_styles
+class BorderCollapse(Enum):
+    collapse = 1
+    separate = 2
+
+
+_style_cache = {}
+
+
 class Style(namedtuple('_Style', (
 
         'font', 'font_size', 'bold', 'italic', 'underline',
@@ -47,6 +53,8 @@ class Style(namedtuple('_Style', (
         'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
 
         'page_break_inside',
+
+        'border_collapse', 'border_spacing',
 
         ))):
 
@@ -88,16 +96,23 @@ class Style(namedtuple('_Style', (
             margin_left=0,
 
             page_break_inside=True,
+
+            border_collapse=BorderCollapse.separate,
+            border_spacing=0,
         )
 
-    def set(self, **kwargs):
-        raise NotImplementedError
+    def set(self, **attrs):
+        _ts = self._replace(**attrs)
+        ts = _style_cache.setdefault(hash(_ts), _ts)
+        if ts is _ts:  # validate if we just added this new style to cache
+            ts.validate(**attrs)
+        return ts
 
     def validate(self, **kwargs):
         for key, value in kwargs.items():
             if key in ('font',):
                 assert isinstance(value, str)
-            elif key in ('font_size',):
+            elif key in ('font_size', 'border_spacing'):
                 assert isinstance(value, int)
             elif key in ('bold', 'italic', 'underline', 'page_break_inside'):
                 assert isinstance(value, bool)
@@ -105,6 +120,8 @@ class Style(namedtuple('_Style', (
                 assert isinstance(value, TextAlign)
             elif key == 'vertical_align':
                 assert isinstance(value, VerticalAlign)
+            elif key == 'border_collapse':
+                assert isinstance(value, BorderCollapse)
             elif key.startswith('border'):
                 _, _, field = key.split('_')
                 if field == 'color':

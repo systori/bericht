@@ -1,19 +1,14 @@
-from reportlab.platypus.flowables import Flowable
-from reportlab.platypus.doctemplate import LayoutError
+from bericht.block import Block, LayoutError
 
 
 __all__ = ['Table']
 
 
-class Table(Flowable):
+class Table(Block):
 
-    def __init__(self, columns, rows, style):
-        super().__init__()
+    def __init__(self, columns, rows, style, was_split=False):
+        super().__init__(rows, style, was_split)
         self.columns = columns
-        self.rows = rows
-        self.style = style
-        self._widths = None
-        self._heights = None
 
     def draw(self):
         y = self.height
@@ -27,31 +22,31 @@ class Table(Flowable):
             fixed_width = sum(self.columns)
             stretch_width = available_width - fixed_width
             stretch_col_width = stretch_width / stretch_cols
-            self._widths = [stretch_col_width if w == 0 else w for w in self.columns]
+            self.content_widths = [stretch_col_width if w == 0 else w for w in self.columns]
         else:
-            self._widths = self.columns.copy()
+            self.content_widths = self.columns.copy()
 
     def wrap(self, available_width, _=None):
         self.fill_stretch_column(available_width)
         self.width = available_width
         self.height = 0
-        self._heights = []
-        for row in self.rows:
-            _, height = row.wrapOn(None, self._widths, 0)
-            self._heights.append(height)
+        self.content_heights = []
+        for row in self.content:
+            _, height = row.wrap(self.content_widths)
+            self.content_heights.append(height)
             self.height += height
         return available_width, self.height
 
     def split(self, available_width, available_height):
-        if self._heights is None:
-            self.wrap(available_width, 0)
+        if self.content_heights is None:
+            self.wrap(available_width)
 
-        assert self._heights, "Split called on empty table."
+        assert self.content_heights, "Split called on empty table."
 
         split_at_row = -1
         split_row_height = 0
         consumed_height = 0
-        for height in self._heights:
+        for height in self.content_heights:
             split_at_row += 1
             split_row_height = height
             consumed_height += height
@@ -59,19 +54,19 @@ class Table(Flowable):
                 break
 
         if consumed_height <= available_height:
-            if len(self.rows) == 1 or len(self.rows)-1 == split_at_row:
+            if len(self.content) == 1 or len(self.content)-1 == split_at_row:
                 # nothing to split
                 return [self]
             else:
                 # table split cleanly between rows, no need to further split any rows/cells
                 return [
-                    Table(self.columns, self.rows[:split_at_row+1], self.style),
-                    Table(self.columns, self.rows[split_at_row-1:], self.style)
+                    Table(self.columns, self.content[:split_at_row+1], self.style, was_split=True),
+                    Table(self.columns, self.content[split_at_row-1:], self.style, was_split=True)
                 ]
 
-        top_rows = self.rows[:split_at_row]
-        row = self.rows[split_at_row]
-        bottom_rows = self.rows[split_at_row+1:]
+        top_rows = self.content[:split_at_row]
+        row = self.content[split_at_row]
+        bottom_rows = self.content[split_at_row+1:]
 
         top_height = available_height - (consumed_height - split_row_height)
         split = row.splitOn(None, available_width, top_height)
@@ -91,6 +86,6 @@ class Table(Flowable):
             raise LayoutError("Splitting row {} produced unexpected result.".format(split_at_row))
 
         return [] if not top_rows else [
-            Table(self.columns, top_rows, self.style),
-            Table(self.columns, bottom_rows, self.style)
+            Table(self.columns, top_rows, self.style, was_split=True),
+            Table(self.columns, bottom_rows, self.style, was_split=True)
         ]

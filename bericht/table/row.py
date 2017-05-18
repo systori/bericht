@@ -1,5 +1,4 @@
-from reportlab.platypus.doctemplate import LayoutError
-from ..block import Block
+from bericht.block import Block, LayoutError
 from ..style import VerticalAlign
 from .cell import Span
 
@@ -8,13 +7,36 @@ __all__ = ('Row',)
 
 class Row(Block):
 
-    def __init__(self, columns, style):
-        super().__init__(style)
+    __slots__ = (
+        'columns', 'column_widths', 'column_count', 'collapsed',
+    )
+
+    def __init__(self, columns, style, was_split=False):
+        super().__init__(None, style, was_split)
         self.columns = columns
         self.column_widths = None
         self.column_count = len(columns)
-        self.cells = None
-        self.cell_widths = None
+        self.collapsed = False
+
+    @property
+    def frame_top(self):
+        if self.collapsed:
+            return self.style.border_top_width
+        return 0
+
+    @property
+    def frame_right(self):
+        return 0
+
+    @property
+    def frame_bottom(self):
+        if self.collapsed:
+            return self.style.border_bottom_width
+        return 0
+
+    @property
+    def frame_left(self):
+        return 0
 
     def draw(self):
         x = 0
@@ -30,41 +52,46 @@ class Row(Block):
         assert self.column_count == len(column_widths)
         self.column_widths = column_widths
         self.width = sum(column_widths)
-        self.height = 0
-        self.cells = []
-        self.cell_widths = []
+        cells = self.content = []
+        cell_widths = self.content_widths = []
 
         if not self.columns:
             return 0, 0
 
         for column, col_width in zip(self.columns, self.column_widths):
             if column == Span.col:
-                self.cell_widths[-1] += col_width
+                cell_widths[-1] += col_width
             else:
-                self.cell_widths.append(col_width)
-                self.cells.append(column)
+                cell_widths.append(col_width)
+                cells.append(column)
 
-        for cell, cell_width in zip(self.cells, self.cell_widths):
+        max_height = 0
+        for cell, cell_width in zip(cells, cell_widths):
             if cell is not None:
-                _, height = cell.wrapOn(None, cell_width, 0)
-                self.height = max(self.height, height)
+                cell.collapsed = self.collapsed
+                _, height = cell.wrap(cell_width)
+                max_height = max(max_height, height)
 
-        self.height = self.total_height(self.height)
+        for cell in cells:
+            cell.height = max_height
+
+        self.height = self.frame_height + max_height
         return self.width, self.height
 
     def split(self, column_widths, available_height):
 
-        if self.cells is None:
+        if self.content is None:
             self.wrap(column_widths)
 
         if available_height >= self.height:
             return [self]
 
+        content_height = available_height - self.frame_height
         top_half = []
         bottom_half = []
 
         column_idx = 0
-        for cell, width in zip(self.cells, self.cell_widths):
+        for cell, width in zip(self.content, self.content_widths):
 
             if cell is None:
 
@@ -73,11 +100,7 @@ class Row(Block):
 
             else:
 
-                height = available_height
-                if cell.style.vertical_align == VerticalAlign.bottom:
-                    height = available_height - (self.height - cell.height)
-
-                split = cell.splitOn(None, width, height)
+                split = cell.splitOn(None, width, content_height)
 
                 if not split:
                     # cell could not be split,
@@ -106,7 +129,7 @@ class Row(Block):
         cells_empty = all(c in (None, Span.col) for c in top_half)
 
         return [] if cells_empty else [
-            Row(top_half, self.style),
-            Row(bottom_half, self.style)
+            Row(top_half, self.style, was_split=True),
+            Row(bottom_half, self.style, was_split=True)
         ]
 
