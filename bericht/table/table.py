@@ -1,4 +1,5 @@
 from bericht.block import Block, LayoutError
+from bericht.style import BorderCollapse
 
 
 __all__ = ['Table']
@@ -41,7 +42,9 @@ class Table(Block):
         self.width = available_width
         self.height = self.frame_height
         self.content_heights = []
+        collapsed = self.style.border_collapse == BorderCollapse.collapse
         for row in self.content:
+            row.collapsed = collapsed
             _, height = row.wrap(self.content_widths)
             self.content_heights.append(height)
             self.height += height

@@ -41,9 +41,21 @@ class Row(Block):
     def draw(self):
         x = 0
         y = self.frame_bottom
-        for cell, width in zip(self.content, self.content_widths):
+        last = len(self.content_widths)-1
+        for i, cell, width in enumerate(zip(self.content, self.content_widths)):
             cell.drawOn(self.canv, x, y)
+            if False and self.collapsed:
+                self.draw_collapsed_cell_border(
+                    None if i == 0 else self.content[i-1],
+                    cell,
+                    None if i == last else self.content[i+1],
+                )
+            else:
+                cell.draw_border()
             x += width
+
+    def draw_collapsed_cell_border(self, before, cell, after):
+        pass
 
     def wrap(self, column_widths, _=None):
         assert self.column_count == len(column_widths)

@@ -26,10 +26,12 @@ class TestText(BasePDFTestCase):
             "Some people don't like change, but you need to "
             "embrace change if the alternative is disaster."
         )
-        self.assertEqual(text.width, 494.55600000000004)
+        self.assertEqual(text.width, None)
+        self.assertEqual(text.text_width, 494.55600000000004)
         self.assertEqual(text.min_content_width, 494.55600000000004)
         self.assertEqual(text.height, 14)
         self.assertEqual(text.wrapOn(None, 20, 10), (494.55600000000004, 14))
+        self.assertEqual(text.width, 20)
 
     def test_draw(self):
         self.assertPDF(static('hello world!'), [
@@ -59,6 +61,7 @@ class TestParagraph(BasePDFTestCase):
             "BT",
             "1 0 0 1 0 0 Tm",
             "/F1 12 Tf 14 TL",
+            "0 0 Td",
             "(hello world!) Tj T*",
             "ET"
         ])
@@ -76,6 +79,7 @@ class TestParagraph(BasePDFTestCase):
             "BT",
             "1 0 0 1 0 0 Tm",
             "/F1 12 Tf 14 TL",
+            "0 0 Td",
             "(hello ) Tj",
             "/F2 12 Tf",
             "(world) Tj",

@@ -79,8 +79,12 @@ class Paragraph(Block):
         txt = self.canv.beginText(x, y)
         txt.setFont(style.font_name, style.font_size, style.leading)
         for line, width in zip(self.content, self.content_widths):
-            if alignment == TextAlign.right:
+            if self.style.text_align == TextAlign.right:
                 txt.setXPos(self.width - width)
+            elif self.style.text_align == TextAlign.center:
+                txt.setXPos((self.width - width) / 2.0)
+            else:
+                txt.setXPos(0)
             fragments = []
             for word in line:
                 if word is Break:
@@ -148,20 +152,22 @@ class Text:
     width and height.
     """
 
-    __slots__ = ('text', 'style', 'width', 'height', 'canv')
+    __slots__ = ('text', 'text_width', 'style', 'width', 'height', 'canv')
 
     def __init__(self, text, style):
         self.text = text
         self.style = style
-        self.width = stringWidth(text, style.font_name, style.font_size)
+        self.text_width = stringWidth(text, style.font_name, style.font_size)
+        self.width = None
         self.height = style.leading
 
     @property
     def min_content_width(self):
-        return self.width
+        return self.text_width
 
     def wrapOn(self, canvas, available_width, available_height):
-        return self.width, self.height
+        self.width = available_width
+        return self.text_width, self.height
 
     def drawOn(self, canvas, x, y):
         canvas.saveState()
@@ -172,7 +178,12 @@ class Text:
         canvas.restoreState()
 
     def draw(self):
-        t = self.canv.beginText(0, 0)
+        x = 0
+        if self.style.text_align == TextAlign.right:
+            x = self.width - self.text_width
+        elif self.style.text_align == TextAlign.center:
+            x = (self.width - self.text_width) / 2.0
+        t = self.canv.beginText(x, 0)
         t._setFont(self.style.font_name, self.style.font_size)
         t._textOut(self.text)
         self.canv.drawText(t)

@@ -1,3 +1,4 @@
+from io import BytesIO
 from string import whitespace
 
 from lxml import etree
@@ -10,18 +11,26 @@ __all__ = ('parse_html',)
 
 
 def parse_html(html, style=None):
-    target = ParserEventTarget(style or Style.default())
-    parser = etree.XMLParser(
-        remove_comments=True,
-        target=target
+    root = RootCollector(style or Style.default())
+    stack = [root]
+    context = etree.iterparse(
+        BytesIO(html.encode('utf8')),
+        events=('start', 'end',),
+        tag=('table', 'tr', 'th', 'td', 'p'),
+        html=True, remove_comments=True
     )
-    return etree.XML(''.join((
-        '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" '
-        '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
-        '<root>',
-        html,
-        '</root>'
-    )), parser)
+    for event, element in context:
+        if event == 'start':
+            # print("%5s, %4s" % (event, element.tag))
+            stack.append(stack[-1].start(element))
+        else:  # event == 'end':
+            # print("%5s, %4s: '%s' '%s'" % (event, element.tag, element.text, element.tail))
+            stack[-1].end(element)
+            stack.pop()
+            if element.tag in ('table', 'p'):
+                # clear() can be expensive, don't bother calling it for the small things
+                element.clear()
+    return stack[0].flowables
 
 
 NESTING_ERROR = "'{}' not allowed inside of '{}', maybe a missing close tag?"
@@ -36,24 +45,20 @@ class Collector:
         self.style = style
         self.flowables = []
 
-    def start(self, tag, attrib):
-        assert tag in self.children, NESTING_ERROR.format(tag, self.tag)
-        collector = self.children[tag](self.style)
+    def start(self, e):
+        assert e.tag in self.children, NESTING_ERROR.format(e.tag, self.tag)
+        collector = self.children[e.tag](self.style)
         self.flowables.append(collector.flowable)
         return collector
 
-    def end(self, tag):
-        assert tag == self.tag
+    def end(self, e):
+        assert e.tag == self.tag
         return True
-
-    def data(self, data):
-        pass
 
 
 class ParagraphCollector(Collector):
 
     tag = 'p'
-    allowed = ('b', 'strong', 'i', 'u', 'span', 'br')
 
     def __init__(self, style):
         super().__init__(style)
@@ -62,30 +67,35 @@ class ParagraphCollector(Collector):
         self.word_open = False
         self.flowable = Paragraph(self.words, style)
 
-    def start(self, tag, attrib):
-        assert tag in self.allowed, NESTING_ERROR.format(tag, self.tag)
-        getattr(self, 'start_'+tag)(attrib)
+    def start(self, element):
+        # paragraph has no inner structures other than styling tags
+        raise RuntimeError
 
-    def start_b(self, attrib):
-        self.styles.append(self.styles[-1].set(bold=True))
-    start_strong = start_b
-
-    def start_i(self, attrib):
-        self.styles.append(self.styles[-1].set(italic=True))
-
-    def start_u(self, attrib):
-        self.styles.append(self.styles[-1].set(underline=True))
-
-    def start_br(self, attrib):
-        self.words.append(Break)
-
-    def end(self, tag):
-        if tag == 'p':
-            return True
-        elif tag == 'br':
-            pass
-        else:
-            self.styles.pop()
+    def end(self, paragraph):
+        if paragraph.text:
+            self.data(paragraph.text)
+        context = etree.iterwalk(
+            paragraph, events=('start', 'end'),
+            tag=('b', 'strong', 'i', 'u', 'span', 'br')
+        )
+        for event, element in context:
+            tag = element.tag
+            if event == 'start':
+                if tag in ('b', 'strong'):
+                    self.styles.append(self.styles[-1].set(bold=True))
+                elif tag == 'i':
+                    self.styles.append(self.styles[-1].set(italic=True))
+                elif tag == 'u':
+                    self.styles.append(self.styles[-1].set(underline=True))
+                if element.text:
+                    self.data(element.text)
+            else:  # event == 'end':
+                if tag == 'br':
+                    self.words.append(Break)
+                else:
+                    self.styles.pop()
+                if element.tail:
+                    self.data(element.tail)
 
     def data(self, data):
         if data[0] in whitespace or (self.words and self.words[-1] is Break):
@@ -131,49 +141,13 @@ class TableCollector(Collector):
 
     def __init__(self, style):
         super().__init__(style)
-        self.flowable = Table(self.flowables, style)
+        self.flowable = Table([], self.flowables, style)
 
 CellCollector.children['table'] = TableCollector
 
 
 class RootCollector(Collector):
-
     children = {
         'p': ParagraphCollector,
         'table': TableCollector
     }
-
-    def end(self, tag):
-        return False
-
-
-class ParserEventTarget:
-
-    def __init__(self, style):
-        self.root = RootCollector(style)
-        self.stack = []
-        self.tag_stack = []
-
-    def start(self, tag, attrib):
-        self.tag_stack.append(tag)
-        if tag == 'root':
-            assert not self.stack
-            collector = self.root
-        else:
-            collector = self.stack[-1].start(tag, attrib)
-        if collector:
-            self.stack.append(collector)
-
-    def end(self, tag):
-        start = self.tag_stack.pop()
-        assert start == tag, 'End tag ({}) does not match start tag ({}).'.format(tag, start)
-        if self.stack[-1].end(tag):
-            self.stack.pop()
-
-    def data(self, data):
-        self.stack[-1].data(data)
-
-    def close(self):
-        assert len(self.tag_stack) == 0, 'Unclosed tags: {}'.format(self.tag_stack)
-        assert len(self.stack) == 1
-        return self.stack[0].flowables

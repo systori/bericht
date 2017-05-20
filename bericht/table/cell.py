@@ -11,7 +11,7 @@ class Span(Enum):
 
 class Cell(Block):
 
-    __slots__ = ('collapsed',)
+    __slots__ = ('collapsed', 'first', 'last')
 
     def __init__(self, words, style, was_split=False):
         super().__init__(words, style, was_split)
@@ -45,17 +45,30 @@ class Cell(Block):
         s = self.style
         return s.border_left_width/2.0 + s.padding_left
 
+    @property
+    def border_box(self):
+        if not self.collapsed:
+            return super().border_box
+        s = self.style
+        return (
+            (0, self.height),  # top left
+            (self.width, self.height),  # top right
+            (0, 0),  # bottom left
+            (self.width, 0),  # bottom right
+        )
+
     def draw(self):
         x = self.frame_left
         if self.style.vertical_align == VerticalAlign.top:
             y = self.height - self.frame_top
+        elif self.style.vertical_align == VerticalAlign.middle:
+            y = (self.height + sum(self.content_heights)) / 2.0
         else:
             y = self.frame_bottom + sum(self.content_heights)
 
         for block, height in zip(self.content, self.content_heights):
             y -= height
             block.drawOn(self.canv, x, y)
-        self.draw_border()
 
     def wrap(self, available_width, _=None):
         self.width = available_width
@@ -79,6 +92,8 @@ class Cell(Block):
 
         if self.style.vertical_align == VerticalAlign.top:
             consumed_height = self.frame_top
+        elif self.style.vertical_align == VerticalAlign.middle:
+            consumed_height = (self.height - sum(self.content_heights)) / 2.0
         else:
             consumed_height = self.height - (sum(self.content_heights) + self.frame_bottom)
 

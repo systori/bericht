@@ -46,15 +46,20 @@ class RecordingParagraph(Paragraph):
         super().__init__(words, style)
         self.draw_call = None
 
-    def drawOn(self, canvas, x, y):
+    def drawOn(self, canvas, x, y, _sW=None):
         self.draw_call = (x, y)
+        super().drawOn(canvas, x, y, _sW)
+
+
+def rpara(text, style):
+    return RecordingParagraph.from_string(text, style)
 
 
 class TestCell(TestCase):
 
     def setUp(self):
         self.text = 'hello'
-        self.p = RecordingParagraph.from_string(self.text, S)
+        self.p = rpara(self.text, S)
         self.width = self.p.width
         self.height = S.leading
 
@@ -124,8 +129,8 @@ class TestCell(TestCase):
 
     def test_draw(self):
         canvas = Canvas(None)
-        p1 = RecordingParagraph.from_string(self.text, S)
-        p2 = RecordingParagraph.from_string(self.text, S)
+        p1 = rpara(self.text, S)
+        p2 = rpara(self.text, S)
         cell = Cell([p1, p2], S.set(margin_left=1, padding_top=3, padding_bottom=3))
         # natural height, aligned top
         cell.wrap(30)
@@ -142,6 +147,11 @@ class TestCell(TestCase):
         cell.drawOn(canvas, 0, 0)
         self.assertEqual(p1.draw_call, (1, 17))
         self.assertEqual(p2.draw_call, (1, 3))
+        # middle aligned
+        cell.style = cell.style.set(vertical_align=VerticalAlign.middle)
+        cell.drawOn(canvas, 0, 0)
+        self.assertEqual(p1.draw_call, (1, 50))
+        self.assertEqual(p2.draw_call, (1, 36))
 
 
 class TestRow(TestCase):

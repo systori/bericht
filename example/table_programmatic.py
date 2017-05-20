@@ -1,6 +1,6 @@
 from reportlab.platypus.doctemplate import SimpleDocTemplate
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.colors import green, blue, red
+from reportlab.lib.colors import black, green, blue, red
 
 from bericht.style import *
 from bericht.table import *
@@ -22,6 +22,9 @@ S = Style.default().set(
 )
 
 doc = SimpleDocTemplate('example.pdf', pagesize=letter)
+
+tables = []
+
 builder = TableBuilder([1, 1, 1], S)
 builder.row(
     para("Top Left "*10),
@@ -49,4 +52,30 @@ builder.row(
 builder.row(
     para("Right.", S.set(text_align=TextAlign.right)), Span.col, Span.col
 )
-doc.build([builder.table])
+tables.append(builder.table)
+
+
+S = Style.default().set(
+    border_top_width=1,
+    border_bottom_width=1,
+    border_right_width=1,
+    border_left_width=1,
+    border_top_color=black,
+    border_right_color=black,
+    border_bottom_color=black,
+    border_left_color=black,
+    text_align=TextAlign.right,
+    vertical_align=VerticalAlign.top,
+    border_collapse=BorderCollapse.collapse,
+)
+
+builder = TableBuilder([1]*11, S)
+for i in range(11):
+    builder.row(*(i*j for j in range(11)))
+builder.row(*(
+    [static("center", S.set(text_align=TextAlign.center))] +
+    [Span.col for i in range(10)]
+))
+tables.append(builder.table)
+
+doc.build(tables)

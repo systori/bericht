@@ -56,6 +56,9 @@ class Block:
     def getKeepWithNext(self):
         return False
 
+    def getSpaceBefore(self):
+        return 0
+
     def getSpaceAfter(self):
         return 0
 
