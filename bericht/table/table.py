@@ -38,14 +38,22 @@ class Table(Block):
             self.content_widths = widths
 
     def wrap(self, available_width, _=None):
-        self.calculate_ratio_columns(available_width - self.frame_width)
+        collapsed = self.style.border_collapse == BorderCollapse.collapse
+        columns_available_width = available_width - self.frame_width
+        vspacing = hspacing = 0
+        if not collapsed:
+            vspacing = self.style.border_spacing_vertical
+            hspacing = self.style.border_spacing_horizontal
+            columns_available_width -= hspacing*len(self.columns)
+        self.calculate_ratio_columns(columns_available_width)
         self.width = available_width
         self.height = self.frame_height
         self.content_heights = []
-        collapsed = self.style.border_collapse == BorderCollapse.collapse
         for row in self.content:
             row.collapsed = collapsed
+            row.cell_spacing = hspacing
             _, height = row.wrap(self.content_widths)
+            height += vspacing
             self.content_heights.append(height)
             self.height += height
         return available_width, self.height
@@ -79,6 +87,8 @@ class Table(Block):
         bottom_rows = self.content[split_at_row+1:]
 
         top_height = available_height - (consumed_height - split_row_height)
+        if self.style.border_collapse == BorderCollapse.separate:
+            top_height -= self.style.border_spacing_vertical
         split = row.splitOn(None, available_width, top_height)
 
         if not split:

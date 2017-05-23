@@ -19,37 +19,38 @@ class Cell(Block):
 
     @property
     def frame_top(self):
-        if not self.collapsed:
-            return super().frame_top
         s = self.style
-        return s.border_top_width/2 + s.padding_top
+        if self.collapsed:
+            return s.border_top_width/2 + s.padding_top
+        else:
+            return s.border_top_width + s.padding_top
 
     @property
     def frame_right(self):
-        if not self.collapsed:
-            return super().frame_right
         s = self.style
-        return s.padding_right + s.border_right_width/2.0
+        if self.collapsed:
+            return s.padding_right + s.border_right_width/2.0
+        else:
+            return s.padding_right + s.border_right_width
 
     @property
     def frame_bottom(self):
-        if not self.collapsed:
-            return super().frame_bottom
         s = self.style
-        return s.border_bottom_width/2.0 + s.padding_bottom
+        if self.collapsed:
+            return s.border_bottom_width/2.0 + s.padding_bottom
+        else:
+            return s.border_bottom_width + s.padding_bottom
 
     @property
     def frame_left(self):
-        if not self.collapsed:
-            return super().frame_left
         s = self.style
-        return s.border_left_width/2.0 + s.padding_left
+        if self.collapsed:
+            return s.border_left_width/2.0 + s.padding_left
+        else:
+            return s.border_left_width + s.padding_left
 
     @property
     def border_box(self):
-        if not self.collapsed:
-            return super().border_box
-        s = self.style
         return (
             (0, self.height),  # top left
             (self.width, self.height),  # top right

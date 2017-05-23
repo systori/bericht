@@ -10,7 +10,7 @@ class Block:
         'style', 'width', 'height', 'was_split',
 
         # reportlab stuff
-        'canv', '_frame',
+        'canv', '_frame', '_postponed',
     )
 
     def __init__(self, content, style, was_split=False):

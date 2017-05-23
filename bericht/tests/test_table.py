@@ -80,12 +80,12 @@ class TestCell(TestCase):
         )
         cell = Cell([], frame)
         cell.collapsed = False
-        self.assertEqual(cell.frame_top, 15)
-        self.assertEqual(cell.frame_right, 18)
-        self.assertEqual(cell.frame_bottom, 21)
-        self.assertEqual(cell.frame_left, 24)
-        self.assertEqual(cell.frame_width, 42)
-        self.assertEqual(cell.frame_height, 36)
+        self.assertEqual(cell.frame_top, 14)
+        self.assertEqual(cell.frame_right, 16)
+        self.assertEqual(cell.frame_bottom, 18)
+        self.assertEqual(cell.frame_left, 20)
+        self.assertEqual(cell.frame_width, 36)
+        self.assertEqual(cell.frame_height, 32)
         cell.collapsed = True
         self.assertEqual(cell.frame_top, 11.5)
         self.assertEqual(cell.frame_right, 13)
@@ -131,7 +131,7 @@ class TestCell(TestCase):
         canvas = Canvas(None)
         p1 = rpara(self.text, S)
         p2 = rpara(self.text, S)
-        cell = Cell([p1, p2], S.set(margin_left=1, padding_top=3, padding_bottom=3))
+        cell = Cell([p1, p2], S.set(padding_left=1, padding_top=3, padding_bottom=3))
         # natural height, aligned top
         cell.wrap(30)
         cell.drawOn(canvas, 0, 0)
@@ -317,26 +317,26 @@ class TestTable(TestCase):
 
     def test_wrap_single_cell(self):
         table = Table([1], [0], [Row([Cell([hello_p(10)], S)], S)], S)
-        self.assertEqual(table.wrap(50, 10), (50, 140))
-        self.assertEqual(table.content_heights, [140])
+        self.assertEqual(table.wrap(50, 10), (50, 142))
+        self.assertEqual(table.content_heights, [142])
 
     def test_wrap_uses_tallest_column_in_each_row(self):
         table = Table([1, 1], [0, 0], [
             Row([Cell([hello_p(10)], S), Cell([hello_p(20)], S)], S),
             Row([Cell([hello_p(20)], S), Cell([hello_p(10)], S)], S),
         ], S)
-        self.assertEqual(table.wrap(100, 10), (100, 560))
-        self.assertEqual(table.content_heights, [280, 280])
+        self.assertEqual(table.wrap(100, 10), (100, 564))
+        self.assertEqual(table.content_heights, [282, 282])
 
     def test_no_split_single_cell(self):
         table = Table([1], [0], [Row([Cell([hello_p(10)], S)], S)], S)
-        tables = table.split(50, 140)
+        tables = table.split(50, 142)
         self.assertEqual(len(tables), 1)
         self.assertEqual(tables[0], table)
 
     def test_split_single_cell(self):
         table = Table([1], [0], [Row([Cell([hello_p(10)], S)], S)], S)
-        width, height = 5 * hello_width, hello_height
+        width, height = 5 * hello_width, hello_height + 2
         tables = table.split(width, height)
         self.assertEqual(len(tables), 2)
         top, bottom = [row_lines(table.content[0], [width], height)[0] for table in tables]
@@ -349,10 +349,16 @@ class TestTable(TestCase):
             Row([Cell([hello_p(10)], S)], S)
         ]
         table = Table([1], [0], rows, S)
-        tables = table.split(50, 140)
+        tables = table.split(50, 142)
         self.assertEqual(len(tables), 2)
         self.assertEqual(tables[0].content, [rows[0]])
         self.assertEqual(tables[1].content, [rows[1]])
+
+    def test_calculate_ratios(self):
+        table = Table([0, 1, 0], [25, 0, 100], [], S)
+        self.assertEqual(table.content_widths, None)
+        table.calculate_ratio_columns(200)
+        self.assertEqual(table.content_widths, [25, 75, 100])
 
 
 class TestBuilder(TestCase):
@@ -383,7 +389,7 @@ class TestBuilder(TestCase):
         row = rows[0]
         self.assertEqual(len(row.columns), 3)
         self.assertEqual(len(row.content), 2)
-        self.assertEqual(row.content_widths, [100, 50])
+        self.assertEqual(row.content_widths, [97, 48])
         self.assertEqual(row_lines(row, tbl.content_widths, 100), [
             ['hello'], ['world']
         ])
@@ -413,9 +419,9 @@ class TestBuilder(TestCase):
         ])
 
         # with table split
-        tbl.wrap(300)
-        tbl1, tbl2 = tbl.split(300, 40)
-        tbl1.wrap(300)
+        tbl.wrap(305)
+        tbl1, tbl2 = tbl.split(305, 40)
+        tbl1.wrap(305)
         row1, row2 = tbl1.content
         self.assertEqual(len(row1.content), 4)
         self.assertEqual(len(row2.content), 3)

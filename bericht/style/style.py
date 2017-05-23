@@ -54,7 +54,9 @@ class Style(namedtuple('_Style', (
 
         'page_break_inside',
 
-        'border_collapse', 'border_spacing',
+        'border_collapse',
+        'border_spacing_horizontal',
+        'border_spacing_vertical',
 
         ))):
 
@@ -98,7 +100,8 @@ class Style(namedtuple('_Style', (
             page_break_inside=True,
 
             border_collapse=BorderCollapse.separate,
-            border_spacing=0,
+            border_spacing_horizontal=2,
+            border_spacing_vertical=2,
         )
 
     def set(self, **attrs):

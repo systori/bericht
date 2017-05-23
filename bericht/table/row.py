@@ -8,7 +8,7 @@ __all__ = ('Row',)
 class Row(Block):
 
     __slots__ = (
-        'columns', 'column_widths', 'column_count', 'collapsed',
+        'columns', 'column_widths', 'column_count', 'collapsed', 'cell_spacing',
     )
 
     def __init__(self, columns, style, was_split=False):
@@ -17,6 +17,7 @@ class Row(Block):
         self.column_widths = None
         self.column_count = len(columns)
         self.collapsed = False
+        self.cell_spacing = 0
 
     @property
     def frame_top(self):
@@ -39,10 +40,10 @@ class Row(Block):
         return 0
 
     def draw(self):
-        x = 0
+        x = self.cell_spacing / 2.0
         y = self.frame_bottom
         last = len(self.content_widths)-1
-        for i, cell, width in enumerate(zip(self.content, self.content_widths)):
+        for i, (cell, width) in enumerate(zip(self.content, self.content_widths)):
             cell.drawOn(self.canv, x, y)
             if False and self.collapsed:
                 self.draw_collapsed_cell_border(
@@ -52,7 +53,7 @@ class Row(Block):
                 )
             else:
                 cell.draw_border()
-            x += width
+            x += width + self.cell_spacing / 2.0
 
     def draw_collapsed_cell_border(self, before, cell, after):
         pass
@@ -69,7 +70,7 @@ class Row(Block):
 
         for column, col_width in zip(self.columns, self.column_widths):
             if column == Span.col:
-                cell_widths[-1] += col_width
+                cell_widths[-1] += col_width + self.cell_spacing / 2.0
             else:
                 cell_widths.append(col_width)
                 cells.append(column)
