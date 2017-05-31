@@ -1,3 +1,4 @@
+from itertools import chain
 from bericht.block import Block, LayoutError
 from bericht.style import BorderCollapse
 
@@ -7,17 +8,23 @@ __all__ = ['Table']
 
 class Table(Block):
 
-    __slots__ = ('ratios', 'columns',)
+    __slots__ = ('ratios', 'columns', 'thead', 'tfoot')
 
-    def __init__(self, ratios, columns, rows, style, was_split=False):
+    def __init__(self, ratios, columns, rows, style, thead=None, tfoot=None, was_split=False):
         super().__init__(rows, style, was_split)
         self.ratios = ratios
         self.columns = columns
+        self.thead = thead or []
+        self.tfoot = tfoot or []
+
+    @property
+    def rows(self):
+        return chain(self.thead, self.content, self.tfoot)
 
     def draw(self):
         x = self.frame_left
         y = self.height - self.frame_top
-        for row, height in zip(self.content, self.content_heights):
+        for row, height in zip(self.rows, self.content_heights):
             y -= height
             row.drawOn(self.canv, x, y)
         self.draw_border()
@@ -49,7 +56,7 @@ class Table(Block):
         self.width = available_width
         self.height = self.frame_height
         self.content_heights = []
-        for row in self.content:
+        for row in self.rows:
             row.collapsed = collapsed
             row.cell_spacing = hspacing
             _, height = row.wrap(self.content_widths)
@@ -64,9 +71,30 @@ class Table(Block):
 
         assert self.content_heights, "Split called on empty table."
 
+        if self.tfoot:
+
+            # check that footer fits, exit fast if not
+            footer_height = sum(self.content_heights[-len(self.tfoot):])
+            if footer_height >= available_height:
+                return []
+
+            # reduce the available height by footer to make sure there is always room for it
+            available_height -= footer_height
+
+        heights = iter(self.content_heights)
+
+        # now check if header also fits, exit fast if not
+        header_height = 0
+        for _, height in zip(self.thead, heights):
+            header_height += height
+            if header_height >= available_height:
+                return []
+
+        # finally lets see if some rows fit sandwiched between thead/tfoot
         split_at_row = -1
-        split_row_height = consumed_height = 0
-        for split_at_row, split_row_height in enumerate(self.content_heights):
+        split_row_height = 0
+        consumed_height = header_height
+        for split_at_row, (row, split_row_height) in enumerate(zip(self.content, heights)):
             consumed_height += split_row_height
             if consumed_height >= available_height:
                 break
@@ -78,8 +106,8 @@ class Table(Block):
             else:
                 # table split cleanly between rows, no need to further split any rows/cells
                 return [
-                    Table(self.ratios, self.columns, self.content[:split_at_row+1], self.style, was_split=True),
-                    Table(self.ratios, self.columns, self.content[split_at_row-1:], self.style, was_split=True)
+                    Table(self.ratios, self.columns, self.content[:split_at_row+1], self.style, self.thead, self.tfoot, was_split=True),
+                    Table(self.ratios, self.columns, self.content[split_at_row-1:], self.style, self.thead, self.tfoot, was_split=True)
                 ]
 
         top_rows = self.content[:split_at_row]
@@ -106,6 +134,6 @@ class Table(Block):
             raise LayoutError("Splitting row {} produced unexpected result.".format(split_at_row))
 
         return [] if not top_rows else [
-            Table(self.ratios, self.columns, top_rows, self.style, was_split=True),
-            Table(self.ratios, self.columns, bottom_rows, self.style, was_split=True)
+            Table(self.ratios, self.columns, top_rows, self.style, self.thead, self.tfoot, was_split=True),
+            Table(self.ratios, self.columns, bottom_rows, self.style, self.thead, self.tfoot, was_split=True)
         ]

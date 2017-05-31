@@ -360,6 +360,23 @@ class TestTable(TestCase):
         table.calculate_ratio_columns(200)
         self.assertEqual(table.content_widths, [25, 75, 100])
 
+    def test_header_footer_split(self):
+        thead = [  # height: 16
+            Row([Cell([static('heading', S)], S)], S)
+        ]
+        tbody = [  # height: 142
+            Row([Cell([hello_p(10)], S)], S),
+            Row([Cell([hello_p(10)], S)], S)
+        ]
+        tfoot = [  # height: 16
+            Row([Cell([static('footer', S)], S)], S)
+        ]
+        table = Table([1], [0], tbody, S, thead, tfoot)
+        tables = table.split(50, 16 + 142 + 16)
+        self.assertEqual(len(tables), 2)
+        self.assertEqual(list(tables[0].rows), [thead[0], tbody[0], tfoot[0]])
+        self.assertEqual(list(tables[1].rows), [thead[0], tbody[1], tfoot[0]])
+
 
 class TestBuilder(TestCase):
 
@@ -394,7 +411,7 @@ class TestBuilder(TestCase):
             ['hello'], ['world']
         ])
 
-    def test_table_with_header_and_spanning(self):
+    def test_bigger_table_with_spanning(self):
         builder = TableBuilder([0, 1, 0, 0], S)
         builder.row('col 1', 'col 2', 'col 3', 'col 4')
         builder.row('row 1', hello_p(10), Span.col, 99)
