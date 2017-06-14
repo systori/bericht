@@ -39,7 +39,7 @@ _style_cache = {}
 
 class Style(namedtuple('_Style', (
 
-        'font', 'font_size', 'bold', 'italic', 'underline',
+        'font', 'font_size', 'font_weight', 'bold', 'italic', 'underline',
 
         'text_align', 'vertical_align',
 
@@ -66,6 +66,7 @@ class Style(namedtuple('_Style', (
 
             font='Helvetica',
             font_size=12,
+            font_weight='',
             bold=False,
             italic=False,
             underline=False,
@@ -113,10 +114,10 @@ class Style(namedtuple('_Style', (
 
     def validate(self, **kwargs):
         for key, value in kwargs.items():
-            if key in ('font',):
+            if key in ('font', 'font_weight'):
                 assert isinstance(value, str)
             elif key in ('font_size', 'border_spacing'):
-                assert isinstance(value, int)
+                assert isinstance(value, (int, float))
             elif key in ('bold', 'italic', 'underline', 'page_break_inside'):
                 assert isinstance(value, bool)
             elif key == 'text_align':

@@ -72,6 +72,10 @@ class ParagraphCollector(Collector):
         raise RuntimeError
 
     def end(self, paragraph):
+        if 'id' in paragraph.attrib:
+            self.flowable.id= paragraph.attrib['id']
+        if 'class' in paragraph.attrib:
+            self.flowable.classes = paragraph.attrib['class'].split(' ')
         if paragraph.text:
             self.data(paragraph.text)
         context = etree.iterwalk(

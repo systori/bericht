@@ -6,6 +6,7 @@ __all__ = ('Block', 'LayoutError')
 class Block:
 
     __slots__ = (
+        'parent', 'classes', 'id', 'tag',
         'content', 'content_widths', 'content_heights',
         'style', 'width', 'height', 'was_split',
 
@@ -13,7 +14,10 @@ class Block:
         'canv', '_frame', '_postponed',
     )
 
-    def __init__(self, content, style, was_split=False):
+    def __init__(self, content, style, parent=None, was_split=False):
+        self.id = None
+        self.classes = []
+        self.parent = parent
         self.content = content
         self.content_widths = None
         self.content_heights = None

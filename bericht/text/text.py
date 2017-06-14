@@ -64,6 +64,7 @@ class Paragraph(Block):
 
     def __init__(self, words, style):
         super().__init__([], style)
+        self.tag = 'p'
         self.words = words
 
     def __str__(self):
