@@ -1,5 +1,5 @@
 from tinycss2 import parse_stylesheet, parse_declaration_list, parse_one_component_value, ast
-from bericht.style import Style
+from bericht.node import Style
 
 __all__ = ('CSS',)
 

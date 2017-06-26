@@ -6,7 +6,7 @@ __all__ = ('Block', 'LayoutError')
 class Block:
 
     __slots__ = (
-        'parent', 'classes', 'id', 'tag',
+        'parent', 'tag', 'id', 'classes', 'nth', 'nth_type',
         'content', 'content_widths', 'content_heights',
         'style', 'width', 'height', 'was_split',
 
@@ -35,15 +35,15 @@ class Block:
     def wrap(self, available_width, available_height):
         return self.width, self.height
 
-    def drawOn(self, canvas, x, y, _sW=None):
-        canvas.saveState()
+    def draw_on(self, canvas, x, y, _sW=None):
+        canvas.save_state()
         canvas.translate(x, y)
         self.canv = canvas
         self.draw()
         self.canv = None
         # canvas.setStrokeColor(gray)
         # canvas.rect(0, 0, self.width, self.height)
-        canvas.restoreState()
+        canvas.restore_state()
 
     def draw(self):
         pass

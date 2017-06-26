@@ -1,6 +1,6 @@
 from itertools import chain
-from bericht.block import Block, LayoutError
-from bericht.style import BorderCollapse
+from bericht.node import Block, LayoutError
+from .style import BorderCollapse
 
 
 __all__ = ['Table']

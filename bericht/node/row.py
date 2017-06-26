@@ -1,5 +1,5 @@
-from bericht.block import Block, LayoutError
-from ..style import VerticalAlign
+from bericht.node import Block, LayoutError
+from .style import VerticalAlign
 from .cell import Cell, Span
 
 __all__ = ('Row',)

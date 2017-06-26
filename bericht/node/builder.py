@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from . import *
+from bericht.table import *
 from ..text import *
 
 __all__ = ('TableBuilder',)

@@ -3,8 +3,8 @@ from itertools import chain
 from collections import namedtuple
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
 
-from bericht.block import Block
-from bericht.style import Style, TextAlign
+from bericht.node import Block
+from .style import Style, TextAlign
 
 __all__ = (
     'Text', 'Paragraph', 'Word', 'Break',
@@ -54,7 +54,9 @@ class Break:
 
 class Paragraph(Block):
 
-    __slots__ = ('words',)
+    __slots__ = ('words',
+                 # TODO: these are used by parser, move somewhere else, fix parser
+                 'styles', 'word_open')
 
     @classmethod
     def from_string(cls, text, style):
@@ -66,6 +68,8 @@ class Paragraph(Block):
         super().__init__([], style)
         self.tag = 'p'
         self.words = words
+        self.styles = [style]
+        self.word_open = False
 
     def __str__(self):
         return ' '.join(str(word) for word in self.words)
@@ -77,15 +81,15 @@ class Paragraph(Block):
     def draw(self):
         style = self.style
         x, y, alignment = 0, self.height - style.leading, style.text_align
-        txt = self.canv.beginText(x, y)
-        txt.setFont(style.font_name, style.font_size, style.leading)
+        txt = self.canv.begin_text(x, y)
+        #txt.setFont(style.font_name, style.font_size, style.leading)
         for line, width in zip(self.content, self.content_widths):
             if self.style.text_align == TextAlign.right:
-                txt.setXPos(self.width - width)
+                txt.x = self.width - width
             elif self.style.text_align == TextAlign.center:
-                txt.setXPos((self.width - width) / 2.0)
+                txt.x = (self.width - width) / 2.0
             else:
-                txt.setXPos(0)
+                txt.x = 0
             fragments = []
             for word in line:
                 if word is Break:
@@ -93,16 +97,16 @@ class Paragraph(Block):
                 for part in word.parts:
                     if style != part.style:
                         if fragments:
-                            txt._textOut(''.join(fragments))
+                            txt.line(''.join(fragments))
                             fragments = []
                         style = part.style
-                        txt._setFont(style.font_name, style.font_size)
+                        #txt._setFont(style.font_name, style.font_size)
                     fragments.append(part.part)
                 fragments.append(' ')
             if fragments and fragments[-1] == ' ':
                 fragments.pop()  # last space
-            txt._textOut(''.join(fragments), True)
-        self.canv.drawText(txt)
+            txt.line(''.join(fragments), True)
+        txt.close()
 
     def wrap(self, available_width, _=None):
         self.width = available_width

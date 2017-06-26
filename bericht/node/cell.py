@@ -1,6 +1,6 @@
 from enum import Enum
-from bericht.block import Block, LayoutError
-from bericht.style import VerticalAlign
+from bericht.node import Block, LayoutError
+from .style import VerticalAlign
 
 __all__ = ('Cell', 'Span')
 

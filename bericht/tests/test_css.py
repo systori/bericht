@@ -1,9 +1,10 @@
 from unittest import TestCase
-from bericht.css import CSS
-from bericht.html import parse_html
 
-from bericht.css.css import parse_selectors
+from bericht.css import CSS
 from tinycss2 import parse_one_rule
+
+from bericht.html import parse_html
+from bericht.html.css import parse_selectors
 
 
 class TestSelectorParsing(TestCase):
