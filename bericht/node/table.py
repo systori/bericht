@@ -1,21 +1,126 @@
 from itertools import chain
-from bericht.node import Block, LayoutError
+from .block import Block
+from .text import Paragraph
 from .style import BorderCollapse
 
 
-__all__ = ['Table']
+__all__ = ['Table', 'ColumnGroup', 'Column', 'RowGroup']
+
+
+class ColumnGroup:
+
+    def __init__(self, tag, parent, id=None, classes=None, style=None):
+        self.tag = tag
+        self.parent = parent
+        self.id = id
+        self.classes = classes
+        self.style = style
+        self.columns = []
+        self.widths = None
+        parent.columns = self
+
+    def get_widths(self, available_width):
+        if self.widths is None:
+            self.calculate_widths(available_width)
+        return self.widths
+
+    def calculate_widths(self, available_width):
+
+        widths = []
+
+        for c in self.columns:
+            width = 0
+            if c.is_fixed:
+                width = c.fixed
+            elif c.is_max_content:
+                width = c.text_width(available_width)
+            elif c.is_min_content:
+                width = c.text_width(0)
+            widths.append(width)
+
+        fixed = sum(widths)
+
+        units = 0
+        for c in self.columns:
+            if c.is_proportional:
+                units += c.proportion
+
+        unit_size = (available_width - fixed) / units
+        for i in range(len(self.columns)):
+            c = self.columns[i]
+            if c.is_proportional:
+                widths[i] = c.proportion * unit_size
+
+        self.widths = widths
+
+
+class Column(Paragraph):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.width = ''
+        self.parent.columns.append(self)
+
+    @property
+    def is_fixed(self):
+        return all(n in '0123456789' for n in self.width)
+
+    @property
+    def fixed(self):
+        return int(self.width)
+
+    @property
+    def is_max_content(self):
+        return self.width in ('0*', 'max-content')
+
+    @property
+    def is_min_content(self):
+        return self.width in ('min-content')
+
+    @property
+    def is_proportional(self):
+        return self.width.endswith('*') and self.width != '0*'
+
+    @property
+    def proportion(self):
+        return int(self.width[:-1])
+
+    def text_width(self, available_width):
+        if self.words:
+            return self.wrap(available_width)[1]
+        else:
+            return 0
+
+
+class RowGroup:
+
+    def __init__(self, tag, parent, id=None, classes=None, style=None):
+        self.tag = tag
+        self.parent = parent
+        self.id = id
+        self.classes = classes
+        self.style = style
+        self.rows = []
 
 
 class Table(Block):
 
-    __slots__ = ('ratios', 'columns', 'thead', 'tfoot')
+    __slots__ = ('columns', 'thead', 'tbody', 'tfoot')
 
-    def __init__(self, ratios, columns, rows, style, thead=None, tfoot=None, was_split=False):
-        super().__init__(rows, style, was_split)
-        self.ratios = ratios
-        self.columns = columns
-        self.thead = thead or []
-        self.tfoot = tfoot or []
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.columns = None
+        self.thead = None
+        self.tbody = None
+        self.tfoot = None
+
+    def get_tbody(self):
+        if not self.tbody:
+            self.tbody = RowGroup('tbody', self, None, None, None)
+        return self.tbody
+
+    def get_column_widths(self, row, available_width):
+        return self.columns.get_widths(available_width)
 
     @property
     def rows(self):
@@ -28,21 +133,6 @@ class Table(Block):
             y -= height
             row.drawOn(self.canv, x, y)
         self.draw_border()
-
-    def calculate_ratio_columns(self, available_width):
-        units = sum(self.ratios)
-        if units == 0:
-            self.content_widths = self.columns.copy()
-        else:
-            fixed = sum(self.columns)
-            unit_size = (available_width - fixed) / units
-            widths = []
-            for ratio, column in zip(self.ratios, self.columns):
-                if ratio == 0:
-                    widths.append(column)
-                else:
-                    widths.append(ratio * unit_size)
-            self.content_widths = widths
 
     def wrap(self, available_width, _=None):
         collapsed = self.style.border_collapse == BorderCollapse.collapse

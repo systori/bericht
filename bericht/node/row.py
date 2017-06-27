@@ -8,16 +8,18 @@ __all__ = ('Row',)
 class Row(Block):
 
     __slots__ = (
-        'columns', 'column_widths', 'column_count', 'collapsed', 'cell_spacing',
+        'collapsed', 'cell_widths', 'cell_spacing',
     )
 
-    def __init__(self, columns, style, was_split=False):
-        super().__init__(None, style, was_split)
-        self.columns = columns
-        self.column_widths = None
-        self.column_count = len(columns)
+    def __init__(self, *args):
+        super().__init__(*args)
         self.collapsed = False
+        self.cell_widths = []
         self.cell_spacing = 0
+
+    @property
+    def table(self):
+        return self.parent.parent
 
     @property
     def frame_top(self):
@@ -39,17 +41,17 @@ class Row(Block):
     def frame_left(self):
         return 0
 
-    def draw(self):
+    def draw(self, page):
         x = self.cell_spacing / 2.0
         y = self.frame_bottom
-        last = len(self.content_widths)-1
-        for i, (cell, width) in enumerate(zip(self.content, self.content_widths)):
-            cell.drawOn(self.canv, x, y)
+        last = len(self.cell_widths)-1
+        for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
+            cell.draw_on(page, x, y)
             if False and self.collapsed:
                 self.draw_collapsed_cell_border(
-                    None if i == 0 else self.content[i-1],
+                    None if i == 0 else self.children[i-1],
                     cell,
-                    None if i == last else self.content[i+1],
+                    None if i == last else self.children[i+1],
                 )
             else:
                 cell.draw_border()
@@ -58,17 +60,16 @@ class Row(Block):
     def draw_collapsed_cell_border(self, before, cell, after):
         pass
 
-    def wrap(self, column_widths, _=None):
-        assert self.column_count == len(column_widths)
-        self.column_widths = column_widths
-        self.width = sum(column_widths)
-        cells = self.content = []
-        cell_widths = self.content_widths = []
+    def wrap(self, available_width, _=None):
+        column_widths = self.table.get_column_widths(self, available_width)
+        self.width = available_width
+        cells = self.children = []
+        cell_widths = self.cell_widths = []
 
-        if not self.columns:
+        if not self.children:
             return 0, 0
 
-        for column, col_width in zip(self.columns, self.column_widths):
+        for column, col_width in zip(self.children, column_widths):
             if column == Span.col:
                 cell_widths[-1] += col_width + self.cell_spacing / 2.0
             else:
@@ -88,10 +89,10 @@ class Row(Block):
         self.height = self.frame_height + max_height
         return self.width, self.height
 
-    def split(self, column_widths, available_height):
+    def split(self, available_width, available_height):
 
         if self.content is None:
-            self.wrap(column_widths)
+            self.wrap(available_width)
 
         if available_height >= self.height:
             return [self]

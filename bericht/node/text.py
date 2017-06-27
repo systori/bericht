@@ -52,23 +52,30 @@ class Break:
     pass
 
 
+class Line:
+
+    __slots__ = ('words', 'width')
+
+    def __init__(self, words=None):
+        self.words = words or []
+        self.width = 0
+
+    def add(self, word):
+        self.words.append(word)
+
+    @property
+    def empty(self):
+        return not self.words
+
+
 class Paragraph(Block):
 
-    __slots__ = ('words',
-                 # TODO: these are used by parser, move somewhere else, fix parser
-                 'styles', 'word_open')
+    __slots__ = ('words', 'styles', 'word_open')
 
-    @classmethod
-    def from_string(cls, text, style):
-        style = style
-        words = [Word(style, word) for word in text.split()]
-        return cls(words, style)
-
-    def __init__(self, words, style):
-        super().__init__([], style)
-        self.tag = 'p'
-        self.words = words
-        self.styles = [style]
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.words = []
+        self.styles = [self.style]
         self.word_open = False
 
     def __str__(self):
@@ -78,20 +85,20 @@ class Paragraph(Block):
     def min_content_width(self):
         return 0
 
-    def draw(self):
+    def draw(self, canvas):
         style = self.style
         x, y, alignment = 0, self.height - style.leading, style.text_align
-        txt = self.canv.begin_text(x, y)
+        txt = canvas.begin_text(x, y)
         #txt.setFont(style.font_name, style.font_size, style.leading)
-        for line, width in zip(self.content, self.content_widths):
+        for line in self.children:
             if self.style.text_align == TextAlign.right:
-                txt.x = self.width - width
+                txt.x = self.width - line.width
             elif self.style.text_align == TextAlign.center:
-                txt.x = (self.width - width) / 2.0
+                txt.x = (self.width - line.width) / 2.0
             else:
                 txt.x = 0
             fragments = []
-            for word in line:
+            for word in line.words:
                 if word is Break:
                     continue
                 for part in word.parts:
@@ -108,32 +115,29 @@ class Paragraph(Block):
             txt.line(''.join(fragments), True)
         txt.close()
 
-    def wrap(self, available_width, _=None):
+    def wrap(self, available_width):
         self.width = available_width
-        line = []
-        lines = self.content = [line]
-        widths = self.content_widths = [0]
-        if not self.content:
+        line = Line()
+        lines = self.children = [line]
+        if not self.words:
             return 0, 0
 
         space_width = stringWidth(' ', self.style.font_name, self.style.font_size)
         for word in self.words:
 
             if word is Break:
-                line = [Break]
+                line = Line([Break])
                 lines.append(line)
-                widths.append(0)
                 continue
 
             word_width = word.width
-            if widths[-1]+word_width > available_width:
+            if line.width+word_width > available_width:
                 if line:
-                    line = []
+                    line = Line()
                     lines.append(line)
-                    widths.append(0)
 
-            widths[-1] += word_width + space_width
-            line.append(word)
+            line.width += word_width + space_width
+            line.add(word)
 
         self.height = len(lines) * self.style.leading
         return available_width, self.height

@@ -11,11 +11,12 @@ class Span(Enum):
 
 class Cell(Block):
 
-    __slots__ = ('collapsed', 'first', 'last')
+    __slots__ = ('collapsed', 'first', 'last', 'content_heights')
 
-    def __init__(self, words, style, was_split=False):
-        super().__init__(words, style, was_split)
+    def __init__(self, *args):
+        super().__init__(*args)
         self.collapsed = False
+        self.content_heights = None
 
     @property
     def frame_top(self):
@@ -58,7 +59,7 @@ class Cell(Block):
             (self.width, 0),  # bottom right
         )
 
-    def draw(self):
+    def draw(self, page):
         x = self.frame_left
         if self.style.vertical_align == VerticalAlign.top:
             y = self.height - self.frame_top
@@ -67,17 +68,17 @@ class Cell(Block):
         else:
             y = self.frame_bottom + sum(self.content_heights)
 
-        for block, height in zip(self.content, self.content_heights):
+        for block, height in zip(self.children, self.content_heights):
             y -= height
-            block.drawOn(self.canv, x, y)
+            block.draw_on(page, x, y)
 
-    def wrap(self, available_width, _=None):
+    def wrap(self, available_width):
         self.width = available_width
         self.content_heights = []
         content_width = available_width - self.frame_width
         consumed = 0
-        for block in self.content:
-            _, height = block.wrapOn(None, content_width, 0)
+        for block in self.children:
+            _, height = block.wrap(content_width)
             consumed += height
             self.content_heights.append(height)
         self.height = self.frame_height + consumed

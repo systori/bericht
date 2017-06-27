@@ -2,7 +2,8 @@ from string import whitespace
 from lxml.etree import HTMLPullParser
 from bericht.node import Style
 from bericht.node import Paragraph, Word, Break
-from bericht.node import Table, Row, Cell, Span
+from bericht.node import Table, Row, Cell
+from bericht.node import ColumnGroup, Column, RowGroup
 
 __all__ = ('HTMLParser',)
 
@@ -17,14 +18,27 @@ def pumper(source, pump, stream):
             break
 
 
-class HTMLParser:
+TAG_MAP = {
+    'p': Paragraph,
+    'table': Table,
+    'colgroup': ColumnGroup,
+    'col': Column,
+    'thead': RowGroup,
+    'tbody': RowGroup,
+    'tfoot': RowGroup,
+    'tr': Row,
+    'td': Cell,
+}
 
-    STYLE_TAGS = 'b', 'strong', 'i', 'u', 'span', 'br'
+STYLE_TAGS = 'b', 'strong', 'i', 'u', 'span', 'br'
+
+
+class HTMLParser:
 
     def __init__(self, html_generator):
         parser = HTMLPullParser(
             events=('start', 'end',),
-            tag=('table', 'tr', 'th', 'td', 'p') + HTMLParser.STYLE_TAGS,
+            tag=tuple(TAG_MAP.keys()) + STYLE_TAGS,
             remove_comments=True
         )
         self.events = pumper(
@@ -39,8 +53,7 @@ class HTMLParser:
 
             if event == 'start':
 
-                node = None
-                if tag in HTMLParser.STYLE_TAGS:
+                if tag in STYLE_TAGS:
                     node = parent
                     if tag in ('b', 'strong'):
                         node.styles.append(node.styles[-1].set(bold=True))
@@ -51,20 +64,21 @@ class HTMLParser:
                     if element.text:
                         self.data(node, element.text)
                 else:
-                    if tag == 'p':
-                        node = Paragraph([], Style.default())
-                    elif tag == 'table':
-                        node = Table()
-                    elif tag == 'tr':
-                        node = Row()
-
-                    if parent:
-                        parent.children.append(node)
-                        node.parent = parent
+                    if tag == 'tr' and isinstance(parent, Table):
+                        parent = parent.get_tbody()
+                    node = TAG_MAP[tag](
+                        tag, parent,
+                        element.attrib.get('id', None),
+                        element.attrib.get('class', None),
+                        Style.default()
+                    )
+                    if tag == 'col':
+                        node.width = element.attrib.get('width', '')
 
                 if isinstance(node, Table):
                     for row in self.traverse(node):
-                        yield row
+                        if row.parent.tag == 'tbody':
+                            yield row
                 else:
                     for _ in self.traverse(node):
                         pass

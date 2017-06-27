@@ -4,7 +4,6 @@ class PDFText:
         self.page = page
         self.write("BT")
         self.font = self.page.document.font.id
-        self.write("{} {} Td".format(x, y))
 
     def write(self, code):
         self.page.write(code+'\n')

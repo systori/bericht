@@ -14,7 +14,9 @@ class PDFPage:
         self.width = dimensions[0 if self.layout is 'portrait' else 1]
         self.height = dimensions[1 if self.layout is 'portrait' else 0]
 
-        self.remaining = self.height
+        self.x = DEFAULT_MARGINS['left']
+        self.y = self.height - DEFAULT_MARGINS['top']
+        self.available_width = self.width - self.x - DEFAULT_MARGINS['right']
 
         self.content = document.ref()
 

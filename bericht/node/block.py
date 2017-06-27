@@ -6,65 +6,34 @@ __all__ = ('Block', 'LayoutError')
 class Block:
 
     __slots__ = (
-        'parent', 'tag', 'id', 'classes', 'nth', 'nth_type',
-        'content', 'content_widths', 'content_heights',
-        'style', 'width', 'height', 'was_split',
-
-        # reportlab stuff
-        'canv', '_frame', '_postponed',
+        'tag', 'parent', 'id', 'classes', 'style', 'children',
+        'nth', 'nth_type', 'width', 'height',
     )
 
-    def __init__(self, content, style, parent=None, was_split=False):
-        self.id = None
-        self.classes = []
+    def __init__(self, tag, parent, id, classes, style):
+        self.tag = tag
         self.parent = parent
-        self.content = content
-        self.content_widths = None
-        self.content_heights = None
+        self.id = id
+        self.classes = classes
         self.style = style
+        self.children = []
         self.width = None
         self.height = None
-        self.was_split = was_split
-
-    def wrapOn(self, canvas, available_width, available_height):
-        self.canv = canvas
-        result = self.wrap(available_width, available_height)
-        self.canv = None
-        return result
 
     def wrap(self, available_width, available_height):
         return self.width, self.height
 
-    def draw_on(self, canvas, x, y, _sW=None):
-        canvas.save_state()
-        canvas.translate(x, y)
-        self.canv = canvas
-        self.draw()
-        self.canv = None
-        # canvas.setStrokeColor(gray)
-        # canvas.rect(0, 0, self.width, self.height)
-        canvas.restore_state()
+    def draw_on(self, page, x, y):
+        page.save_state()
+        page.translate(x, y)
+        self.draw(page)
+        page.restore_state()
 
-    def draw(self):
+    def draw(self, canvas):
         pass
-
-    def splitOn(self, canvas, available_width, available_height):
-        self.canv = canvas
-        result = self.split(available_width, available_height)
-        self.canv = None
-        return result
 
     def split(self, available_width, available_height):
         return []
-
-    def getKeepWithNext(self):
-        return False
-
-    def getSpaceBefore(self):
-        return 0
-
-    def getSpaceAfter(self):
-        return 0
 
     def draw_border(self):
         s = self.style
@@ -88,12 +57,12 @@ class Block:
 
     @property
     def empty(self):
-        return not self.content
+        return not self.children
 
     @property
     def min_content_width(self):
         width = 0
-        for block in self.content:
+        for block in self.children:
             width = max(width, block.min_content_width)
         return width
 
