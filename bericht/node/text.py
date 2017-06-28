@@ -77,6 +77,8 @@ class Paragraph(Block):
         self.words = []
         self.styles = [self.style]
         self.word_open = False
+        if self.parent:
+            self.parent.children.append(self)
 
     def __str__(self):
         return ' '.join(str(word) for word in self.words)
@@ -85,18 +87,17 @@ class Paragraph(Block):
     def min_content_width(self):
         return 0
 
-    def draw(self, canvas):
+    def draw(self, page, x, y):
         style = self.style
+        txt = page.begin_text(x, y)
         x, y, alignment = 0, self.height - style.leading, style.text_align
-        txt = canvas.begin_text(x, y)
+        txt.set_position(x, y)
         #txt.setFont(style.font_name, style.font_size, style.leading)
         for line in self.children:
             if self.style.text_align == TextAlign.right:
-                txt.x = self.width - line.width
+                txt.set_position(self.width - line.width)
             elif self.style.text_align == TextAlign.center:
-                txt.x = (self.width - line.width) / 2.0
-            else:
-                txt.x = 0
+                txt.set_position((self.width - line.width) / 2.0)
             fragments = []
             for word in line.words:
                 if word is Break:
@@ -122,6 +123,7 @@ class Paragraph(Block):
         if not self.words:
             return 0, 0
 
+        max_width = 0
         space_width = stringWidth(' ', self.style.font_name, self.style.font_size)
         for word in self.words:
 
@@ -138,9 +140,10 @@ class Paragraph(Block):
 
             line.width += word_width + space_width
             line.add(word)
+            max_width = max(line.width, max_width)
 
         self.height = len(lines) * self.style.leading
-        return available_width, self.height
+        return max_width, self.height
 
     def split(self, available_width, available_height):
         lines = floor(available_height / self.style.leading)

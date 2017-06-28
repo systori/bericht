@@ -17,6 +17,7 @@ class PDFPage:
         self.x = DEFAULT_MARGINS['left']
         self.y = self.height - DEFAULT_MARGINS['top']
         self.available_width = self.width - self.x - DEFAULT_MARGINS['right']
+        self.available_height = self.y - DEFAULT_MARGINS['bottom']
 
         self.content = document.ref()
 

@@ -73,7 +73,7 @@ class HTMLParser:
                         Style.default()
                     )
                     if tag == 'col':
-                        node.width = element.attrib.get('width', '')
+                        node.width_spec = element.attrib.get('width', '')
 
                 if isinstance(node, Table):
                     for row in self.traverse(node):
@@ -88,6 +88,9 @@ class HTMLParser:
                 if tag == 'p':
                     if element.text:
                         self.data(parent, element.text)
+                elif tag == 'col':
+                    if element.tail:
+                        self.data(parent, element.tail)
                 if parent.tag == 'p':
                     if tag == 'br':
                         parent.words.append(Break)

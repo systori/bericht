@@ -11,8 +11,15 @@ class PDFStreamer:
         yield from self.pdf.header()
         page = self.pdf.add_page()
         for block in self.generator:
-            block.wrap(page.available_width)
-            block.draw_on(page, page.x, page.y)
-            page.y -= block.height
+            while True:
+                block.wrap(page.available_width)
+                if block.height <= page.available_height:
+                    page.y -= block.height
+                    page.available_height -= block.height
+                    block.draw(page, page.x, page.y)
+                    break
+                else:
+                    yield from page.read()
+                    page = self.pdf.add_page()
         yield from page.read()
         yield from self.pdf.footer()

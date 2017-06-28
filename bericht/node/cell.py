@@ -17,6 +17,7 @@ class Cell(Block):
         super().__init__(*args)
         self.collapsed = False
         self.content_heights = None
+        self.parent.children.append(self)
 
     @property
     def frame_top(self):
@@ -59,18 +60,18 @@ class Cell(Block):
             (self.width, 0),  # bottom right
         )
 
-    def draw(self, page):
-        x = self.frame_left
+    def draw(self, page, x, y):
+        x += self.frame_left
         if self.style.vertical_align == VerticalAlign.top:
-            y = self.height - self.frame_top
+            y += self.height - self.frame_top
         elif self.style.vertical_align == VerticalAlign.middle:
-            y = (self.height + sum(self.content_heights)) / 2.0
+            y += (self.height + sum(self.content_heights)) / 2.0
         else:
-            y = self.frame_bottom + sum(self.content_heights)
+            y += self.frame_bottom + sum(self.content_heights)
 
         for block, height in zip(self.children, self.content_heights):
             y -= height
-            block.draw_on(page, x, y)
+            block.draw(page, x, y)
 
     def wrap(self, available_width):
         self.width = available_width

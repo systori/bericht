@@ -16,6 +16,8 @@ class Row(Block):
         self.collapsed = False
         self.cell_widths = []
         self.cell_spacing = 0
+        if self.parent.tag in ('thead', 'tfoot'):
+            self.parent.children.append(self)
 
     @property
     def table(self):
@@ -41,12 +43,12 @@ class Row(Block):
     def frame_left(self):
         return 0
 
-    def draw(self, page):
-        x = self.cell_spacing / 2.0
-        y = self.frame_bottom
+    def draw(self, page, x, y):
+        x += self.cell_spacing / 2.0
+        y += self.frame_bottom
         last = len(self.cell_widths)-1
         for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
-            cell.draw_on(page, x, y)
+            cell.draw(page, x, y)
             if False and self.collapsed:
                 self.draw_collapsed_cell_border(
                     None if i == 0 else self.children[i-1],
@@ -63,7 +65,6 @@ class Row(Block):
     def wrap(self, available_width, _=None):
         column_widths = self.table.get_column_widths(self, available_width)
         self.width = available_width
-        cells = self.children = []
         cell_widths = self.cell_widths = []
 
         if not self.children:
@@ -74,16 +75,15 @@ class Row(Block):
                 cell_widths[-1] += col_width + self.cell_spacing / 2.0
             else:
                 cell_widths.append(col_width)
-                cells.append(column)
 
         max_height = 0
-        for cell, cell_width in zip(cells, cell_widths):
+        for cell, cell_width in zip(self.children, cell_widths):
             if cell is not None:
                 cell.collapsed = self.collapsed
                 _, height = cell.wrap(cell_width)
                 max_height = max(max_height, height)
 
-        for cell in cells:
+        for cell in self.children:
             cell.height = max_height
 
         self.height = self.frame_height + max_height

@@ -3,14 +3,22 @@ from bericht.pdf import PDFStreamer
 
 
 def html_gen():
-    yield '<p>first '
+    yield '<p>first ' + ' some really long sentance' * 0
     for i in range(1, 3):
         yield 'hello world {}</p><p>'.format(i)
     yield 'end</p>'
-    #yield '<table>'
-    #for i in range(1, 3):
-    #    yield '<tr><td>row {} col 1</td><td>row {} col 2</td></tr>'.format(i, i)
-    #yield '</table>'
+    yield '<table>'
+    yield '<colgroup>'
+    yield '<col width="0*">row 99 col 99</col>'
+    yield '<col width="3*"></col>'
+    yield '<col width="1*"></col>'
+    yield '</colgroup>'
+    yield '<thead>'
+    yield '<tr><td><p>name</td><td><p>description</td><td><p>row</td>'
+    yield '</thead>'
+    for i in range(1, 30):
+        yield '<tr><td><p>row {} col 1</p></td><td><p>row {} col 2 {}</p></td><td><p>{}</p></td></tr>'.format(i, i, 'blah blah' * 10, i)
+    yield '</table>'
     yield '<p>last p</p>'
 
 

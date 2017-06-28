@@ -23,13 +23,7 @@ class Block:
     def wrap(self, available_width, available_height):
         return self.width, self.height
 
-    def draw_on(self, page, x, y):
-        page.save_state()
-        page.translate(x, y)
-        self.draw(page)
-        page.restore_state()
-
-    def draw(self, canvas):
+    def draw(self, page, x, y):
         pass
 
     def split(self, available_width, available_height):

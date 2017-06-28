@@ -15,7 +15,7 @@ class ColumnGroup:
         self.id = id
         self.classes = classes
         self.style = style
-        self.columns = []
+        self.children = []
         self.widths = None
         parent.columns = self
 
@@ -28,7 +28,7 @@ class ColumnGroup:
 
         widths = []
 
-        for c in self.columns:
+        for c in self.children:
             width = 0
             if c.is_fixed:
                 width = c.fixed
@@ -41,13 +41,13 @@ class ColumnGroup:
         fixed = sum(widths)
 
         units = 0
-        for c in self.columns:
+        for c in self.children:
             if c.is_proportional:
                 units += c.proportion
 
         unit_size = (available_width - fixed) / units
-        for i in range(len(self.columns)):
-            c = self.columns[i]
+        for i in range(len(self.children)):
+            c = self.children[i]
             if c.is_proportional:
                 widths[i] = c.proportion * unit_size
 
@@ -58,36 +58,35 @@ class Column(Paragraph):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.width = ''
-        self.parent.columns.append(self)
+        self.width_spec = ''
 
     @property
     def is_fixed(self):
-        return all(n in '0123456789' for n in self.width)
+        return all(n in '0123456789' for n in self.width_spec)
 
     @property
     def fixed(self):
-        return int(self.width)
+        return int(self.width_spec)
 
     @property
     def is_max_content(self):
-        return self.width in ('0*', 'max-content')
+        return self.width_spec in ('0*', 'max-content')
 
     @property
     def is_min_content(self):
-        return self.width in ('min-content')
+        return self.width_spec in ('min-content')
 
     @property
     def is_proportional(self):
-        return self.width.endswith('*') and self.width != '0*'
+        return self.width_spec.endswith('*') and self.width_spec != '0*'
 
     @property
     def proportion(self):
-        return int(self.width[:-1])
+        return int(self.width_spec[:-1])
 
     def text_width(self, available_width):
         if self.words:
-            return self.wrap(available_width)[1]
+            return self.wrap(available_width)[0]
         else:
             return 0
 
@@ -100,7 +99,8 @@ class RowGroup:
         self.id = id
         self.classes = classes
         self.style = style
-        self.rows = []
+        self.children = []
+        setattr(parent, tag, self)
 
 
 class Table(Block):
@@ -116,7 +116,7 @@ class Table(Block):
 
     def get_tbody(self):
         if not self.tbody:
-            self.tbody = RowGroup('tbody', self, None, None, None)
+            self.tbody = RowGroup('tbody', self)
         return self.tbody
 
     def get_column_widths(self, row, available_width):
