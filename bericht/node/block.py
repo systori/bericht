@@ -20,7 +20,7 @@ class Block:
         self.width = None
         self.height = None
 
-    def wrap(self, available_width, available_height):
+    def wrap(self, page, available_width):
         return self.width, self.height
 
     def draw(self, page, x, y):

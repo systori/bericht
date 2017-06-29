@@ -74,8 +74,8 @@ class PDFDocument:
         return PDFReference(self.ref_ids, meta)
 
     def add_page(self):
-        self.page = PDFPage(self)
         pages = self.root.meta['Pages'].meta
-        pages['Kids'].append(self.page.dictionary)
         pages['Count'] += 1
+        self.page = PDFPage(self, pages['Count'])
+        pages['Kids'].append(self.page.dictionary)
         return self.page

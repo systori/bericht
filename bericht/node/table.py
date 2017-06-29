@@ -19,12 +19,12 @@ class ColumnGroup:
         self.widths = None
         parent.columns = self
 
-    def get_widths(self, available_width):
+    def get_widths(self, page, available_width):
         if self.widths is None:
-            self.calculate_widths(available_width)
+            self.calculate_widths(page, available_width)
         return self.widths
 
-    def calculate_widths(self, available_width):
+    def calculate_widths(self, page, available_width):
 
         widths = []
 
@@ -33,9 +33,9 @@ class ColumnGroup:
             if c.is_fixed:
                 width = c.fixed
             elif c.is_max_content:
-                width = c.text_width(available_width)
+                width = c.text_width(page, available_width)
             elif c.is_min_content:
-                width = c.text_width(0)
+                width = c.text_width(page, 0)
             widths.append(width)
 
         fixed = sum(widths)
@@ -84,9 +84,9 @@ class Column(Paragraph):
     def proportion(self):
         return int(self.width_spec[:-1])
 
-    def text_width(self, available_width):
+    def text_width(self, page, available_width):
         if self.words:
-            return self.wrap(available_width)[0]
+            return self.wrap(page, available_width)[0]
         else:
             return 0
 
@@ -100,7 +100,22 @@ class RowGroup:
         self.classes = classes
         self.style = style
         self.children = []
+        self.drawn_on = None
         setattr(parent, tag, self)
+
+    def wrap(self, page, available_width):
+        header_height = 0
+        for row in self.children:
+            row.wrap(page, available_width, header_wrap=False)
+            header_height += row.height
+        return available_width, header_height
+
+    def draw(self, page, x, y):
+        self.drawn_on = page.page_number
+        for row in self.children:
+            row.draw(page, x, y, header_draw=False)
+            y -= row.height
+        return y
 
 
 class Table(Block):
@@ -119,8 +134,8 @@ class Table(Block):
             self.tbody = RowGroup('tbody', self)
         return self.tbody
 
-    def get_column_widths(self, row, available_width):
-        return self.columns.get_widths(available_width)
+    def get_column_widths(self, page, row, available_width):
+        return self.columns.get_widths(page, available_width)
 
     @property
     def rows(self):

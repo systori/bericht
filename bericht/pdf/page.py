@@ -5,10 +5,12 @@ __all__ = ('PDFPage',)
 
 class PDFPage:
 
-    def __init__(self, document):
+    def __init__(self, document, page_number):
         self.document = document
         self.size = 'letter'
         self.layout = 'portrait'
+
+        self.page_number = page_number
 
         dimensions = SIZES[self.size.upper()]
         self.width = dimensions[0 if self.layout is 'portrait' else 1]

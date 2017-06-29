@@ -15,6 +15,7 @@ def html_gen():
     yield '</colgroup>'
     yield '<thead>'
     yield '<tr><td><p>name</td><td><p>description</td><td><p>row</td>'
+    yield '<tr><td></td><td><p>multi row header</td><td></td>'
     yield '</thead>'
     for i in range(1, 30):
         yield '<tr><td><p>row {} col 1</p></td><td><p>row {} col 2 {}</p></td><td><p>{}</p></td></tr>'.format(i, i, 'blah blah' * 10, i)

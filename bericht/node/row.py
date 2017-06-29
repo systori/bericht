@@ -43,8 +43,11 @@ class Row(Block):
     def frame_left(self):
         return 0
 
-    def draw(self, page, x, y):
+    def draw(self, page, x, y, header_draw=True):
+        if header_draw and self.table.thead and self.table.thead.drawn_on != page.page_number:
+            y = self.table.thead.draw(page, x, y)
         x += self.cell_spacing / 2.0
+        y -= self.height
         y += self.frame_bottom
         last = len(self.cell_widths)-1
         for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
@@ -62,8 +65,13 @@ class Row(Block):
     def draw_collapsed_cell_border(self, before, cell, after):
         pass
 
-    def wrap(self, available_width, _=None):
-        column_widths = self.table.get_column_widths(self, available_width)
+    def wrap(self, page, available_width, header_wrap=True):
+
+        head_height = 0
+        if header_wrap and self.table.thead and self.table.thead.drawn_on != page.page_number:
+            head_height = self.table.thead.wrap(page, available_width)[1]
+
+        column_widths = self.table.get_column_widths(page, self, available_width)
         self.width = available_width
         cell_widths = self.cell_widths = []
 
@@ -80,14 +88,14 @@ class Row(Block):
         for cell, cell_width in zip(self.children, cell_widths):
             if cell is not None:
                 cell.collapsed = self.collapsed
-                _, height = cell.wrap(cell_width)
+                _, height = cell.wrap(page, cell_width)
                 max_height = max(max_height, height)
 
         for cell in self.children:
             cell.height = max_height
 
         self.height = self.frame_height + max_height
-        return self.width, self.height
+        return self.width, self.height + head_height
 
     def split(self, available_width, available_height):
 

@@ -116,7 +116,7 @@ class Paragraph(Block):
             txt.line(''.join(fragments), True)
         txt.close()
 
-    def wrap(self, available_width):
+    def wrap(self, page, available_width):
         self.width = available_width
         line = Line()
         lines = self.children = [line]

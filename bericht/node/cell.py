@@ -73,13 +73,13 @@ class Cell(Block):
             y -= height
             block.draw(page, x, y)
 
-    def wrap(self, available_width):
+    def wrap(self, page, available_width):
         self.width = available_width
         self.content_heights = []
         content_width = available_width - self.frame_width
         consumed = 0
         for block in self.children:
-            _, height = block.wrap(content_width)
+            _, height = block.wrap(page, content_width)
             consumed += height
             self.content_heights.append(height)
         self.height = self.frame_height + consumed
