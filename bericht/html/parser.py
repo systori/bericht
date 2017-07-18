@@ -147,11 +147,11 @@ def extract_words(p, root):
         tag = element.tag
         if event == 'start':
             if tag in ('b', 'strong'):
-                styles.append(styles[-1].set(bold=True))
+                styles.append(styles[-1].set(font_weight='bold'))
             elif tag == 'i':
-                styles.append(styles[-1].set(italic=True))
+                styles.append(styles[-1].set(font_style='italic'))
             elif tag == 'u':
-                styles.append(styles[-1].set(underline=True))
+                styles.append(styles[-1].set(text_decoration='underline'))
             if element.text:
                 data(element.text)
         else:  # event == 'end':

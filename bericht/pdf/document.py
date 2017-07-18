@@ -17,6 +17,8 @@ class PDFDocument:
         self.fonts = {
             'Helvetica': PDFFont(self, 'Helvetica', 'F1'),
             'Helvetica-Bold': PDFFont(self, 'Helvetica-Bold', 'F2'),
+            'Helvetica-BoldOblique': PDFFont(self, 'Helvetica-BoldOblique', 'F3'),
+            'Helvetica-Oblique': PDFFont(self, 'Helvetica-Oblique', 'F4'),
         }
         self.root = self.ref({
             'Type': 'Catalog',
