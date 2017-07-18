@@ -1,4 +1,4 @@
-from tinycss2 import parse_stylesheet, parse_declaration_list, parse_one_component_value, ast
+from tinycss2 import parse_stylesheet, parse_declaration_list, parse_one_component_value, ast, nth
 from bericht.node.style import Style
 
 __all__ = ('CSS',)
@@ -25,6 +25,15 @@ class Combinator:
 
     def select_class(self, name):
         return lambda node: name in node.classes
+
+    def select_position(self, a_b):
+        a, b = a_b
+        def position_test(node):
+            if a == 0:  # nth-child(0n+b)
+                return node.position == b
+            else:  # nth-child(an+b)
+                return node.position >= b and (node.position-b) % a == 0
+        return position_test
 
     def add(self, selector, value, negate=False):
         matcher = selector(value)
@@ -60,8 +69,8 @@ class Declarations:
         self.content = content
         self.attrs = {}
         for declaration in parse_declaration_list(content, skip_comments=True, skip_whitespace=True):
-            value = parse_one_component_value(declaration.value, skip_comments=True)
-            self.attrs[declaration.name.replace('-', '_')] = value.value
+            value_component = parse_one_component_value(declaration.value, skip_comments=True)
+            self.attrs[declaration.name.replace('-', '_')] = value_component.value
 
     def apply(self, node):
         if node.style:
@@ -109,9 +118,18 @@ def parse_selectors(prelude):
                     combinator.add(combinator.select_class, token.value)
                 elif prefix == '#':
                     combinator.add(combinator.select_id, token.value)
+                elif prefix == ':':
+                    if token.value == 'first':
+                        combinator.add(combinator.select_position, (0, 1))
+                    else:
+                        raise RuntimeError
                 else:
                     raise RuntimeError
                 prefix = None
+            elif isinstance(token, ast.FunctionBlock):
+                prefix = None
+                if token.name == 'nth-child':
+                    combinator.add(combinator.select_position, nth.parse_nth(token.arguments))
             else:
                 raise RuntimeError
 
@@ -126,11 +144,18 @@ class CSS:
         self.src = src
         self.rules = []
         for rule in parse_stylesheet(src, skip_comments=True, skip_whitespace=True):
-            if not isinstance(rule, ast.QualifiedRule):
-                continue
-            self.rules.append(
-                (parse_selectors(rule.prelude), Declarations(rule.content))
-            )
+            if isinstance(rule, ast.AtRule) and rule.at_keyword == 'page':
+                selectors = parse_selectors(rule.prelude)
+                for selector in selectors:
+                    for combinator in selector.combinators:
+                        combinator.add(combinator.select_tag, '@page')
+                self.rules.append(
+                    (selectors, Declarations(rule.content))
+                )
+            elif isinstance(rule, ast.QualifiedRule):
+                self.rules.append(
+                    (parse_selectors(rule.prelude), Declarations(rule.content))
+                )
 
     def apply(self, node):
         for selectors, declarations in self.rules:

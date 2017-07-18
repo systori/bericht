@@ -1,6 +1,6 @@
-from bericht.node import Block, LayoutError
+from bericht.node import Block
 from .style import VerticalAlign
-from .cell import Cell, Span
+from .cell import Cell
 
 __all__ = ('Row',)
 
@@ -43,46 +43,33 @@ class Row(Block):
     def frame_left(self):
         return 0
 
-    def draw(self, page, x, y, header_draw=True):
-        if header_draw and self.table.thead and self.table.thead.drawn_on != page.page_number:
-            y = self.table.thead.draw(page, x, y)
-        x += self.cell_spacing / 2.0
-        y -= self.height
-        y += self.frame_bottom
-        last = len(self.cell_widths)-1
-        for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
-            cell.draw(page, x, y)
-            if False and self.collapsed:
-                self.draw_collapsed_cell_border(
-                    None if i == 0 else self.children[i-1],
-                    cell,
-                    None if i == last else self.children[i+1],
-                )
-            else:
-                cell.draw_border()
-            x += width + self.cell_spacing / 2.0
+    def wrap(self, page, available_width):
+        return available_width, (
+            self.table.reserve_header_height(page, available_width) +
+            self._wrap(page, available_width)[1] +
+            self.table.reserve_footer_height(page, available_width)
+        )
 
-    def draw_collapsed_cell_border(self, before, cell, after):
-        pass
-
-    def wrap(self, page, available_width, header_wrap=True):
-
-        head_height = 0
-        if header_wrap and self.table.thead and self.table.thead.drawn_on != page.page_number:
-            head_height = self.table.thead.wrap(page, available_width)[1]
-
+    def _wrap(self, page, available_width):
         column_widths = self.table.get_column_widths(page, self, available_width)
         self.width = available_width
         cell_widths = self.cell_widths = []
 
+        self.css.apply(self)
+        if self.parent:
+            self.style = self.style.inherit(self.parent.style)
+
         if not self.children:
             return 0, 0
 
-        for column, col_width in zip(self.children, column_widths):
-            if column == Span.col:
-                cell_widths[-1] += col_width + self.cell_spacing / 2.0
+        col_width = iter(column_widths)
+        for cell in self.children:
+            if cell.colspan == 1:
+                cell_widths.append(next(col_width))
             else:
-                cell_widths.append(col_width)
+                cell_widths.append(0)
+                for col in range(cell.colspan):
+                    cell_widths[-1] += next(col_width) + self.cell_spacing / 2.0
 
         max_height = 0
         for cell, cell_width in zip(self.children, cell_widths):
@@ -95,7 +82,7 @@ class Row(Block):
             cell.height = max_height
 
         self.height = self.frame_height + max_height
-        return self.width, self.height + head_height
+        return self.width, self.height
 
     def split(self, available_width, available_height):
 
@@ -144,4 +131,31 @@ class Row(Block):
             Row(top_half, self.style, was_split=True),
             Row(bottom_half, self.style, was_split=True)
         ]
+
+    def draw(self, page, x, y):
+        x, y = self.table.draw_header(page, x, y)
+        x, y = self._draw(page, x, y)
+        return x, y
+
+    def _draw(self, page, x, y):
+        original_x, original_y = x, y
+        x += self.cell_spacing / 2.0
+        #y -= self.height
+        y -= self.frame_top
+        last = len(self.cell_widths)-1
+        for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
+            cell.draw(page, x, y)
+            if False and self.collapsed:
+                self.draw_collapsed_cell_border(
+                    None if i == 0 else self.children[i-1],
+                    cell,
+                    None if i == last else self.children[i+1],
+                )
+            else:
+                cell.draw_border(page, x, original_y - self.height)
+            x += width + self.cell_spacing / 2.0
+        return original_x, original_y - self.height
+
+    def draw_collapsed_cell_border(self, before, cell, after):
+        pass
 

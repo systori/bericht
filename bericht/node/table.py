@@ -1,7 +1,6 @@
-from itertools import chain
 from .block import Block
 from .text import Paragraph
-from .style import BorderCollapse
+from .style import Style, BorderCollapse
 
 
 __all__ = ['Table', 'ColumnGroup', 'Column', 'RowGroup']
@@ -9,19 +8,25 @@ __all__ = ['Table', 'ColumnGroup', 'Column', 'RowGroup']
 
 class ColumnGroup:
 
-    def __init__(self, tag, parent, id=None, classes=None, style=None):
+    def __init__(self, tag, parent, id=None, classes=None, css=None, position=None):
         self.tag = tag
         self.parent = parent
         self.id = id
-        self.classes = classes
-        self.style = style
+        self.classes = classes or []
+        self.css = css
+        self.position = position
+        self.style = Style.default()
         self.children = []
         self.widths = None
+        self.span = None
         parent.columns = self
 
     def get_widths(self, page, available_width):
         if self.widths is None:
-            self.calculate_widths(page, available_width)
+            if self.span is None:
+                self.calculate_widths(page, available_width)
+            else:
+                self.widths = [available_width/self.span] * self.span
         return self.widths
 
     def calculate_widths(self, page, available_width):
@@ -74,7 +79,7 @@ class Column(Paragraph):
 
     @property
     def is_min_content(self):
-        return self.width_spec in ('min-content')
+        return self.width_spec in ('min-content',)
 
     @property
     def is_proportional(self):
@@ -93,29 +98,33 @@ class Column(Paragraph):
 
 class RowGroup:
 
-    def __init__(self, tag, parent, id=None, classes=None, style=None):
+    def __init__(self, tag, parent, id=None, classes=None, css=None, position=None):
         self.tag = tag
         self.parent = parent
         self.id = id
-        self.classes = classes
-        self.style = style
+        self.classes = classes or []
+        self.css = css
+        self.position = 1
+        self.style = Style.default()
         self.children = []
         self.drawn_on = None
         setattr(parent, tag, self)
 
     def wrap(self, page, available_width):
         header_height = 0
+        self.css.apply(self)
+        if self.parent:
+            self.style = self.style.inherit(self.parent.style)
         for row in self.children:
-            row.wrap(page, available_width, header_wrap=False)
-            header_height += row.height
-        return available_width, header_height
+            header_height += row._wrap(page, available_width)[1]
+        return header_height
 
     def draw(self, page, x, y):
         self.drawn_on = page.page_number
         for row in self.children:
-            row.draw(page, x, y, header_draw=False)
-            y -= row.height
-        return y
+            x, y = row._draw(page, x, y)
+        self.position += 1
+        return x, y
 
 
 class Table(Block):
@@ -128,6 +137,13 @@ class Table(Block):
         self.thead = None
         self.tbody = None
         self.tfoot = None
+        self.css.apply(self)
+        if self.parent:
+            self.style = self.style.inherit(self.parent.style)
+
+    @classmethod
+    def make(cls, parent=None, id=None, classes=None, style=None):
+        return cls('table', parent, id, classes, style)
 
     def get_tbody(self):
         if not self.tbody:
@@ -137,9 +153,25 @@ class Table(Block):
     def get_column_widths(self, page, row, available_width):
         return self.columns.get_widths(page, available_width)
 
-    @property
-    def rows(self):
-        return chain(self.thead, self.content, self.tfoot)
+    def reserve_header_height(self, page, available_width):
+        if self.thead and self.thead.drawn_on != page.page_number:
+            return self.thead.wrap(page, available_width)
+        return 0
+
+    def reserve_footer_height(self, page, available_width):
+        if self.tfoot:
+            return self.tfoot.wrap(page, available_width)
+        return 0
+
+    def draw_header(self, page, x, y):
+        if self.thead and self.thead.drawn_on != page.page_number:
+            return self.thead.draw(page, x, y)
+        return x, y
+
+    def draw_footer(self, page, x, y):
+        if self.tfoot:
+            return self.tfoot.draw(page, x, y)
+        return x, y
 
     def draw(self):
         x = self.frame_left

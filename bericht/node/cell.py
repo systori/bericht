@@ -1,22 +1,19 @@
 from enum import Enum
-from bericht.node import Block, LayoutError
+from bericht.node import Block
 from .style import VerticalAlign
 
-__all__ = ('Cell', 'Span')
-
-
-class Span(Enum):
-    col = 1
+__all__ = ('Cell',)
 
 
 class Cell(Block):
 
-    __slots__ = ('collapsed', 'first', 'last', 'content_heights')
+    __slots__ = ('collapsed', 'first', 'last', 'content_heights', 'colspan')
 
     def __init__(self, *args):
         super().__init__(*args)
         self.collapsed = False
         self.content_heights = None
+        self.colspan = 1
         self.parent.children.append(self)
 
     @property
@@ -63,20 +60,24 @@ class Cell(Block):
     def draw(self, page, x, y):
         x += self.frame_left
         if self.style.vertical_align == VerticalAlign.top:
-            y += self.height - self.frame_top
+            y -= self.frame_top
         elif self.style.vertical_align == VerticalAlign.middle:
-            y += (self.height + sum(self.content_heights)) / 2.0
+            y -= (self.height + sum(self.content_heights)) / 2.0
         else:
-            y += self.frame_bottom + sum(self.content_heights)
+            y -= self.height - (sum(self.content_heights) + self.frame_bottom)
 
         for block, height in zip(self.children, self.content_heights):
-            y -= height
             block.draw(page, x, y)
 
     def wrap(self, page, available_width):
         self.width = available_width
         self.content_heights = []
         content_width = available_width - self.frame_width
+
+        self.css.apply(self)
+        if self.parent:
+            self.style = self.style.inherit(self.parent.style)
+
         consumed = 0
         for block in self.children:
             _, height = block.wrap(page, content_width)

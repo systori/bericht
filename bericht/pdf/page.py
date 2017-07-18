@@ -5,28 +5,46 @@ __all__ = ('PDFPage',)
 
 class PDFPage:
 
-    def __init__(self, document, page_number):
-        self.document = document
-        self.size = 'letter'
-        self.layout = 'portrait'
+    tag = '@page'
 
-        self.page_number = page_number
+    def __init__(self, document, page_number, css, size='letter'):
+        self.parent = None
+        self.classes = []
+        self.style = None
+        self.position = page_number
+        css.apply(self)
+
+        self.document = document
+        self.size = size
+        self.layout = 'portrait'
 
         dimensions = SIZES[self.size.upper()]
         self.width = dimensions[0 if self.layout is 'portrait' else 1]
         self.height = dimensions[1 if self.layout is 'portrait' else 0]
 
-        self.x = DEFAULT_MARGINS['left']
-        self.y = self.height - DEFAULT_MARGINS['top']
-        self.available_width = self.width - self.x - DEFAULT_MARGINS['right']
-        self.available_height = self.y - DEFAULT_MARGINS['bottom']
+        margins = DEFAULT_MARGINS.copy()
+        if self.style:
+            for side in ('top', 'right', 'bottom', 'left'):
+                attr = 'margin_'+side
+                if attr in self.style.set_attrs:
+                    margins[side] = getattr(self.style, attr)
+        self.x = margins['left']
+        self.y = self.height - margins['top']
+        self.available_width = self.width - self.x - margins['right']
 
         self.content = document.ref()
 
         # Initialize the Font, XObject, and ExtGState dictionaries
         self.resources = document.ref({
-            'ProcSet': ['PDF', 'Text', 'ImageB', 'ImageC', 'ImageI']
+            'ProcSet': ['PDF', 'Text', 'ImageB', 'ImageC', 'ImageI'],
         })
+
+        if self.style and 'letterhead_page' in self.style.set_attrs:
+            letterhead_page = self.document.letterhead[int(self.style.letterhead_page)-1]
+            self.resources.meta.update({
+                'XObject': {letterhead_page.name: letterhead_page}
+            })
+            self.write('/{} Do\n'.format(letterhead_page.name))
 
         # The page dictionary
         self.dictionary = document.ref({
@@ -36,6 +54,18 @@ class PDFPage:
             'Contents': self.content,
             'Resources': self.resources,
         })
+
+    @property
+    def page_number(self):
+        return self.position
+
+    @property
+    def has_content(self):
+        return self.content.has_content
+
+    @property
+    def available_height(self):
+        return self.y - DEFAULT_MARGINS['bottom']
 
     @property
     def font(self):
@@ -60,8 +90,17 @@ class PDFPage:
         self.write("1 0 0 1 {} {} cm\n".format(x, y))
 
     def begin_text(self, x, y):
-        self.font[self.document.font.id] = self.document.font.description
         return PDFText(self, x, y)
+
+    def line_width(self, width):
+        self.write("{} w\n".format(width))
+
+    def stroke_color(self, color):
+        pass
+        #self.write("{} w".format(color))
+
+    def line(self, x1, y1, x2, y2):
+        self.write("n {} {} m {} {} l S\n".format(x1, y1, x2, y2))
 
 
 DEFAULT_MARGINS = {

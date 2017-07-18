@@ -11,11 +11,11 @@ __all__ = (
 )
 
 
-class TextAlign(Enum):
-    left = 1
-    center = 2
-    right = 3
-    justify = 4
+class TextAlign:
+    left = 'left'
+    center = 'center'
+    right = 'right'
+    justify = 'justify'
 
 
 class VerticalAlign(Enum):
@@ -39,7 +39,9 @@ _style_cache = {}
 
 class Style(namedtuple('_Style', (
 
-        'font', 'font_size', 'font_weight', 'bold', 'italic', 'underline',
+        'set_attrs',
+
+        'font', 'font_size', 'font_weight', 'font_style', 'text_decoration',
 
         'text_align', 'vertical_align',
 
@@ -58,20 +60,23 @@ class Style(namedtuple('_Style', (
         'border_spacing_horizontal',
         'border_spacing_vertical',
 
+        'letterhead_page'
+
         ))):
 
     @classmethod
     def default(cls):
         return cls(
 
+            set_attrs=tuple(),
+
             font='Helvetica',
             font_size=12,
             font_weight='',
-            bold=False,
-            italic=False,
-            underline=False,
+            font_style='',
+            text_decoration='',
 
-            text_align=TextAlign.left,
+            text_align='left',
 
             vertical_align=VerticalAlign.top,
 
@@ -103,25 +108,33 @@ class Style(namedtuple('_Style', (
             border_collapse=BorderCollapse.separate,
             border_spacing_horizontal=2,
             border_spacing_vertical=2,
+
+            letterhead_page=1
         )
 
     def set(self, **attrs):
-        _ts = self._replace(**attrs)
+        _ts = self._replace(
+            set_attrs=tuple(set(self.set_attrs) | set(attrs.keys())),
+            **attrs,
+        )
         ts = _style_cache.setdefault(hash(_ts), _ts)
         if ts is _ts:  # validate if we just added this new style to cache
             ts.validate(**attrs)
         return ts
 
+    def inherit(self, other):
+        return self.set(**{
+            attr: getattr(other, attr) for attr in other.set_attrs if attr not in self.set_attrs
+        })
+
     def validate(self, **kwargs):
         for key, value in kwargs.items():
-            if key in ('font', 'font_weight'):
+            if key in ('font', 'font_weight', 'font_style', 'text_decoration', 'text_align'):
                 assert isinstance(value, str)
             elif key in ('font_size', 'border_spacing'):
                 assert isinstance(value, (int, float))
-            elif key in ('bold', 'italic', 'underline', 'page_break_inside'):
+            elif key in ('page_break_inside',):
                 assert isinstance(value, bool)
-            elif key == 'text_align':
-                assert isinstance(value, TextAlign)
             elif key == 'vertical_align':
                 assert isinstance(value, VerticalAlign)
             elif key == 'border_collapse':
@@ -133,9 +146,17 @@ class Style(namedtuple('_Style', (
                 elif field == 'style':
                     assert isinstance(value, BorderStyle)
                 elif field == 'width':
-                    assert isinstance(value, int)
+                    assert isinstance(value, (int, float))
             elif key.startswith('padding') or key.startswith('margin'):
-                assert isinstance(value, int)
+                assert isinstance(value, (int, float))
+
+    @property
+    def bold(self):
+        return 1 if self.font_weight == 'bold' else 0
+
+    @property
+    def italic(self):
+        return 1 if self.font_style == 'italic' else 0
 
     @property
     def font_name(self):

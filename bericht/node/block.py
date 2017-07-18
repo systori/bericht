@@ -1,53 +1,58 @@
-from reportlab.platypus.doctemplate import LayoutError
+from .style import Style
 
-__all__ = ('Block', 'LayoutError')
+__all__ = ('Block',)
 
 
 class Block:
 
     __slots__ = (
         'tag', 'parent', 'id', 'classes', 'style', 'children',
-        'nth', 'nth_type', 'width', 'height',
+        'css', 'position', 'nth_type', 'width', 'height',
     )
 
-    def __init__(self, tag, parent, id, classes, style):
+    def __init__(self, tag, parent, id, classes, css, position):
         self.tag = tag
         self.parent = parent
         self.id = id
-        self.classes = classes
-        self.style = style
+        self.classes = classes or []
+        self.css = css
+        self.position = position
         self.children = []
         self.width = None
         self.height = None
+        self.style = Style.default()
 
     def wrap(self, page, available_width):
-        return self.width, self.height
+        raise NotImplementedError
+
+    def split(self, page):
+        raise NotImplementedError
 
     def draw(self, page, x, y):
-        pass
+        raise NotImplementedError
 
-    def split(self, available_width, available_height):
-        return []
-
-    def draw_border(self):
+    def draw_border(self, page, x, y):
+        page.save_state()
+        page.translate(x, y)
         s = self.style
         top_left, top_right, bottom_left, bottom_right = self.border_box
         if s.border_top_width > 0:
-            self.canv.setLineWidth(s.border_top_width)
-            self.canv.setStrokeColor(s.border_top_color)
-            self.canv.line(*top_left, *top_right)
+            page.line_width(s.border_top_width)
+            page.stroke_color(s.border_top_color)
+            page.line(*top_left, *top_right)
         if s.border_right_width > 0:
-            self.canv.setLineWidth(s.border_right_width)
-            self.canv.setStrokeColor(s.border_right_color)
-            self.canv.line(*top_right, *bottom_right)
+            page.line_width(s.border_right_width)
+            page.stroke_color(s.border_right_color)
+            page.line(*top_right, *bottom_right)
         if s.border_bottom_width > 0:
-            self.canv.setLineWidth(s.border_bottom_width)
-            self.canv.setStrokeColor(s.border_bottom_color)
-            self.canv.line(*bottom_left, *bottom_right)
+            page.line_width(s.border_bottom_width)
+            page.stroke_color(s.border_bottom_color)
+            page.line(*bottom_left, *bottom_right)
         if s.border_left_width > 0:
-            self.canv.setLineWidth(s.border_left_width)
-            self.canv.setStrokeColor(s.border_left_color)
-            self.canv.line(*top_left, *bottom_left)
+            page.line_width(s.border_left_width)
+            page.stroke_color(s.border_left_color)
+            page.line(*top_left, *bottom_left)
+        page.restore_state()
 
     @property
     def empty(self):
