@@ -149,6 +149,10 @@ class CSS:
                 for selector in selectors:
                     for combinator in selector.combinators:
                         combinator.add(combinator.select_tag, '@page')
+                    if not selector.combinators:
+                        combinator = Combinator()
+                        combinator.add(combinator.select_tag, '@page')
+                        selector.combinators.append(combinator)
                 self.rules.append(
                     (selectors, Declarations(rule.content))
                 )
