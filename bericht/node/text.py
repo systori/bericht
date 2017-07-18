@@ -119,15 +119,15 @@ class Paragraph(Block):
         self.height = self.frame_height + len(lines) * self.style.leading
         return max_width, self.height
 
-    def split(self, page):
-        lines = floor(page.available_height / self.style.leading)
+    def split(self, available_height):
+        lines = floor(available_height / self.style.leading)
         if not lines:
-            return []
-        elif lines == len(self.content):
-            return [self]
+            return None, None
+        elif lines == len(self.children):
+            return self, None
         return (
-            Paragraph(list(chain(*self.content[:lines])), self.style),
-            Paragraph(list(chain(*self.content[lines:])), self.style)
+            Paragraph(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[:lines]),
+            Paragraph(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[lines:])
         )
 
     def draw(self, page, x, y):

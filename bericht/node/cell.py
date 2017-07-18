@@ -86,13 +86,10 @@ class Cell(Block):
         self.height = self.frame_height + consumed
         return available_width, self.height
 
-    def split(self, available_width, available_height):
-
-        if self.content_heights is None:
-            self.wrap(available_width)
+    def split(self, available_height):
 
         if not self.content_heights:
-            return [self]
+            return self, None
 
         if self.style.vertical_align == VerticalAlign.top:
             consumed_height = self.frame_top
@@ -103,7 +100,7 @@ class Cell(Block):
 
         if consumed_height >= available_height:
             # border and padding don't even fit
-            return []
+            return None, self
 
         split_at_block, split_block_height = -1, 0
         for split_at_block, split_block_height in enumerate(self.content_heights):
@@ -112,38 +109,27 @@ class Cell(Block):
                 break
 
         if consumed_height <= available_height:
-            if len(self.content) == 1 or len(self.content)-1 == split_at_block:
-                return [self]
+            if len(self.children) == 1 or len(self.children)-1 == split_at_block:
+                return self, None
             else:
                 return [
-                    Cell(self.content[:split_at_block+1], self.style, was_split=True),
-                    Cell(self.content[split_at_block-1:], self.style, was_split=True)
+                    Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[:split_at_block+1]),
+                    Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[split_at_block-1:])
                 ]
 
-        top_content = list(self.content[:split_at_block])
-        block = self.content[split_at_block]
-        bottom_content = list(self.content[split_at_block+1:])
+        top_content = list(self.children[:split_at_block])
+        block = self.children[split_at_block]
+        bottom_content = list(self.children[split_at_block+1:])
 
-        split = block.splitOn(
-            None,
-            available_width - self.frame_width,
-            available_height - (consumed_height - split_block_height)
-        )
+        split_top, split_bottom = block.split(available_height - consumed_height - split_block_height)
 
-        if not split:
-            # flowable could not be split,
-            # move entirely to bottom half
-            bottom_content.insert(0, block)
-        elif len(split) == 1:
-            # flowable completely fits in top half
-            top_content.append(block)
-        elif len(split) == 2:
-            top_content.append(split[0])
-            bottom_content.append(split[1])
-        else:
-            raise LayoutError("Splitting cell with flowable {} produced unexpected result.".format(flowable))
+        if split_top:
+            top_content.append(split_top)
+
+        if split_bottom:
+            bottom_content.insert(0, split_bottom)
 
         return [] if not top_content else [
-            Cell(top_content, self.style, was_split=True),
-            Cell(bottom_content, self.style, was_split=True)
+            Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, top_content),
+            Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, bottom_content)
         ]

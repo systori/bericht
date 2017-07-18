@@ -11,17 +11,18 @@ class PDFStreamer:
         yield from self.pdf.header()
         page = None
         for block in self.generator:
-            while True:
+            while block:
                 page = page or self.pdf.add_page()
                 _, requested_height = block.wrap(page, page.available_width)
                 if requested_height <= page.available_height:
                     page.x, page.y = block.draw(page, page.x, page.y)
                     break
                 else:
-                    #remainder, block = block.split(page)
-                    #if remainder:
-                    #    assert remainder.wrap(page)
-                    #    remainder.draw(page)
+                    remainder, block = block.split(page.available_height)
+                    if remainder:
+                        _, requested_height = remainder.wrap(page, page.available_width)
+                        #assert requested_height <= page.available_height
+                        page.x, page.y = remainder.draw(page, page.x, page.y)
                     assert page.has_content
                     yield from page.read()
                     page = None

@@ -10,14 +10,14 @@ class Block:
         'css', 'position', 'nth_type', 'width', 'height',
     )
 
-    def __init__(self, tag, parent, id, classes, css, position):
+    def __init__(self, tag, parent, id, classes, css, position, children=None):
         self.tag = tag
         self.parent = parent
         self.id = id
         self.classes = classes or []
         self.css = css
         self.position = position
-        self.children = []
+        self.children = children or []
         self.width = None
         self.height = None
         self.style = Style.default()
@@ -25,7 +25,7 @@ class Block:
     def wrap(self, page, available_width):
         raise NotImplementedError
 
-    def split(self, page):
+    def split(self, available_height):
         raise NotImplementedError
 
     def draw(self, page, x, y):

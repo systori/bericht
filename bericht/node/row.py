@@ -64,7 +64,7 @@ class Row(Block):
 
         col_width = iter(column_widths)
         for cell in self.children:
-            if cell.colspan == 1:
+            if not cell or cell.colspan == 1:
                 cell_widths.append(next(col_width))
             else:
                 cell_widths.append(0)
@@ -79,57 +79,27 @@ class Row(Block):
                 max_height = max(max_height, height)
 
         for cell in self.children:
+            if not cell: continue
             cell.height = max_height
 
         self.height = self.frame_height + max_height
         return self.width, self.height
 
-    def split(self, available_width, available_height):
-
-        if self.content is None:
-            self.wrap(available_width)
-
+    def split(self, available_height):
         if available_height >= self.height:
-            return [self]
+            return self, None
 
         content_height = available_height - self.frame_height
         top_half = []
         bottom_half = []
+        for cell, width in zip(self.children, self.cell_widths):
+            top_split, bottom_split = cell.split(content_height)
+            top_half.append(top_split)
+            bottom_half.append(bottom_split)
 
-        column_idx = 0
-        for cell, width in zip(self.content, self.content_widths):
-
-            split = cell.splitOn(None, width, content_height)
-
-            if not split:
-                # cell could not be split,
-                # move entirely to bottom half
-                top_half.append(Cell([], cell.style))
-                bottom_half.append(cell)
-            elif len(split) == 1:
-                # cell completely fits in top half,
-                # add placeholder to bottom half
-                top_half.append(cell)
-                bottom_half.append(Cell([], cell.style))
-            elif len(split) == 2:
-                top_half.append(split[0])
-                bottom_half.append(split[1])
-            else:
-                raise LayoutError("Splitting cell {} produced unexpected result.".format(cell))
-
-            # self.cells does not include Span.col, so we need to add it back in
-            while column_idx+1 < self.column_count and self.columns[column_idx+1] == Span.col:
-                top_half.append(Span.col)
-                bottom_half.append(Span.col)
-                column_idx += 1
-
-            column_idx += 1
-
-        cells_empty = all(c == Span.col or c.empty for c in top_half)
-
-        return [] if cells_empty else [
-            Row(top_half, self.style, was_split=True),
-            Row(bottom_half, self.style, was_split=True)
+        return [
+            Row(self.tag, self.parent, self.id, self.classes, self.css, self.position, top_half),
+            Row(self.tag, self.parent, self.id, self.classes, self.css, self.position+1, bottom_half),
         ]
 
     def draw(self, page, x, y):
@@ -144,15 +114,16 @@ class Row(Block):
         y -= self.frame_top
         last = len(self.cell_widths)-1
         for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
-            cell.draw(page, x, y)
-            if False and self.collapsed:
-                self.draw_collapsed_cell_border(
-                    None if i == 0 else self.children[i-1],
-                    cell,
-                    None if i == last else self.children[i+1],
-                )
-            else:
-                cell.draw_border(page, x, original_y - self.height)
+            if cell:
+                cell.draw(page, x, y)
+                if False and self.collapsed:
+                    self.draw_collapsed_cell_border(
+                        None if i == 0 else self.children[i-1],
+                        cell,
+                        None if i == last else self.children[i+1],
+                    )
+                else:
+                    cell.draw_border(page, x, original_y - self.height)
             x += width + self.cell_spacing / 2.0
         return original_x, original_y - self.height
 
