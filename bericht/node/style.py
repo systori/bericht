@@ -18,10 +18,10 @@ class TextAlign:
     justify = 'justify'
 
 
-class VerticalAlign(Enum):
-    top = 1
-    middle = 2
-    bottom = 3
+class VerticalAlign:
+    top = 'top'
+    middle = 'middle'
+    bottom = 'bottom'
 
 
 class BorderStyle(Enum):
@@ -78,7 +78,7 @@ class Style(namedtuple('_Style', (
 
             text_align='left',
 
-            vertical_align=VerticalAlign.top,
+            vertical_align='top',
 
             padding_top=0,
             padding_right=0,
@@ -129,14 +129,12 @@ class Style(namedtuple('_Style', (
 
     def validate(self, **kwargs):
         for key, value in kwargs.items():
-            if key in ('font', 'font_weight', 'font_style', 'text_decoration', 'text_align'):
+            if key in ('font', 'font_weight', 'font_style', 'text_decoration', 'text_align', 'vertical_align'):
                 assert isinstance(value, str)
             elif key in ('font_size', 'border_spacing'):
                 assert isinstance(value, (int, float))
             elif key in ('page_break_inside',):
                 assert isinstance(value, bool)
-            elif key == 'vertical_align':
-                assert isinstance(value, VerticalAlign)
             elif key == 'border_collapse':
                 assert isinstance(value, BorderCollapse)
             elif key.startswith('border'):
