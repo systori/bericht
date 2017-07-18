@@ -9,11 +9,11 @@ class Cell(Block):
 
     __slots__ = ('collapsed', 'first', 'last', 'content_heights', 'colspan')
 
-    def __init__(self, *args):
+    def __init__(self, *args, colspan=1):
         super().__init__(*args)
         self.collapsed = False
         self.content_heights = None
-        self.colspan = 1
+        self.colspan = colspan
         self.parent.children.append(self)
 
     @property
@@ -86,10 +86,13 @@ class Cell(Block):
         self.height = self.frame_height + consumed
         return available_width, self.height
 
-    def split(self, available_height):
+    def split(self, top_parent, bottom_parent, available_height):
 
         if not self.content_heights:
-            return self, None
+            self.parent = top_parent
+            top_parent.children.append(self)
+            bottom_parent.children.append(None)
+            return
 
         if self.style.vertical_align == VerticalAlign.top:
             consumed_height = self.frame_top
@@ -100,7 +103,10 @@ class Cell(Block):
 
         if consumed_height >= available_height:
             # border and padding don't even fit
-            return None, self
+            top_parent.children.append(None)
+            self.parent = bottom_parent
+            bottom_parent.children.append(self)
+            return
 
         split_at_block, split_block_height = -1, 0
         for split_at_block, split_block_height in enumerate(self.content_heights):
@@ -110,26 +116,33 @@ class Cell(Block):
 
         if consumed_height <= available_height:
             if len(self.children) == 1 or len(self.children)-1 == split_at_block:
-                return self, None
+                self.parent = top_parent
+                top_parent.children.append(self)
+                bottom_parent.children.append(None)
+                return
             else:
-                return [
-                    Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[:split_at_block+1]),
-                    Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[split_at_block-1:])
-                ]
+                top_cell = Cell(self.tag, top_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
+                for top_child in self.children[:split_at_block+1]:
+                    top_child.parent = top_cell
+                    top_cell.children.append(top_child)
+                bottom_cell = Cell(self.tag, bottom_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
+                for bottom_child in self.children[split_at_block-1:]:
+                    bottom_child.parent = bottom_cell
+                    bottom_cell.children.append(bottom_child)
+                return top_cell, bottom_cell
 
-        top_content = list(self.children[:split_at_block])
+        top_cell = Cell(self.tag, top_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
+        for top_child in self.children[:split_at_block]:
+            top_child.parent = top_cell
+            top_cell.children.append(top_child)
+
         block = self.children[split_at_block]
-        bottom_content = list(self.children[split_at_block+1:])
+        bottom_cell = Cell(self.tag, bottom_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
 
-        split_top, split_bottom = block.split(available_height - consumed_height - split_block_height)
+        block.split(top_cell, bottom_cell, available_height - (consumed_height - split_block_height))
 
-        if split_top:
-            top_content.append(split_top)
+        for bottom_child in self.children[split_at_block+1:]:
+            bottom_child.parent = bottom_cell
+            bottom_cell.children.append(bottom_child)
 
-        if split_bottom:
-            bottom_content.insert(0, split_bottom)
-
-        return [] if not top_content else [
-            Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, top_content),
-            Cell(self.tag, self.parent, self.id, self.classes, self.css, self.position, bottom_content)
-        ]
+        return top_cell, bottom_cell

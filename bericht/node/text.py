@@ -64,6 +64,9 @@ class Line:
     def empty(self):
         return not self.words
 
+    def __iter__(self):
+        return iter(self.words)
+
 
 class Paragraph(Block):
 
@@ -119,16 +122,18 @@ class Paragraph(Block):
         self.height = self.frame_height + len(lines) * self.style.leading
         return max_width, self.height
 
-    def split(self, available_height):
+    def split(self, top_container, bottom_container, available_height):
         lines = floor(available_height / self.style.leading)
-        if not lines:
-            return None, None
-        elif lines == len(self.children):
+        if lines == len(self.children):
+            self.parent = top_container
+            top_container.children.append(self)
             return self, None
-        return (
-            Paragraph(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[:lines]),
-            Paragraph(self.tag, self.parent, self.id, self.classes, self.css, self.position, self.children[lines:])
-        )
+        else:
+            top = Paragraph(self.tag, top_container, self.id, self.classes, self.css, self.position)
+            top.words = list(chain(*self.children[:lines]))
+            bottom = Paragraph(self.tag, bottom_container, self.id, self.classes, self.css, self.position)
+            bottom.words = list(chain(*self.children[lines:]))
+            return top, bottom
 
     def draw(self, page, x, y):
         final_x, final_y = x, y - self.height

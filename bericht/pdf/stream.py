@@ -18,7 +18,7 @@ class PDFStreamer:
                     page.x, page.y = block.draw(page, page.x, page.y)
                     break
                 else:
-                    remainder, block = block.split(page.available_height)
+                    remainder, block = block.split(None, None, page.available_height)
                     if remainder:
                         _, requested_height = remainder.wrap(page, page.available_width)
                         #assert requested_height <= page.available_height

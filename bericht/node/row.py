@@ -85,22 +85,19 @@ class Row(Block):
         self.height = self.frame_height + max_height
         return self.width, self.height
 
-    def split(self, available_height):
+    def split(self, top_parent, bottom_parent, available_height):
         if available_height >= self.height:
             return self, None
 
         content_height = available_height - self.frame_height
-        top_half = []
-        bottom_half = []
-        for cell, width in zip(self.children, self.cell_widths):
-            top_split, bottom_split = cell.split(content_height)
-            top_half.append(top_split)
-            bottom_half.append(bottom_split)
+        top_half = Row(self.tag, self.parent, self.id, self.classes, self.css, self.position)
+        bottom_half = Row(self.tag, self.parent, self.id, self.classes, self.css, self.position+1)
 
-        return [
-            Row(self.tag, self.parent, self.id, self.classes, self.css, self.position, top_half),
-            Row(self.tag, self.parent, self.id, self.classes, self.css, self.position+1, bottom_half),
-        ]
+        for cell in self.children:
+            if cell:
+                cell.split(top_half, bottom_half, content_height)
+
+        return top_half, bottom_half
 
     def draw(self, page, x, y):
         x, y = self.table.draw_header(page, x, y)
