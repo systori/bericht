@@ -1,3 +1,6 @@
+from pdfrw.objects import PdfObject, PdfString
+
+
 def serialize(meta):
     if isinstance(meta, dict):
         yield b'<<'
@@ -8,6 +11,8 @@ def serialize(meta):
             yield from serialize(value)
             yield b' '
         yield b'>>'
+    elif isinstance(meta, (PdfObject, PdfString)):
+        yield str(meta).encode()
     elif isinstance(meta, str):
         if not meta.startswith('/'):
             meta = '/'+meta
@@ -31,6 +36,9 @@ class PDFReference:
         self.chunks = []
         self.offset = None
         self.name = name
+
+    def update(self, dict):
+        self.meta.update(dict)
 
     def write(self, chunk):
         self.meta.setdefault('Length', 0)

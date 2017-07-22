@@ -1,7 +1,7 @@
 from .reference import PDFReference
 from .letterhead import PDFLetterhead
 from .page import PDFPage
-from .font import PDFFont
+from .font import read_font
 
 __all__ = ('PDFDocument',)
 
@@ -14,12 +14,6 @@ class PDFDocument:
         self.offset = 0
         self.references = []
         self.page = None
-        self.fonts = {
-            'Helvetica': PDFFont(self, 'Helvetica', 'F1'),
-            'Helvetica-Bold': PDFFont(self, 'Helvetica-Bold', 'F2'),
-            'Helvetica-BoldOblique': PDFFont(self, 'Helvetica-BoldOblique', 'F3'),
-            'Helvetica-Oblique': PDFFont(self, 'Helvetica-Oblique', 'F4'),
-        }
         self.root = self.ref({
             'Type': 'Catalog',
             'Pages': self.ref({
@@ -32,6 +26,12 @@ class PDFDocument:
             'Producer': 'bericht',
         })
         self.letterhead = PDFLetterhead(self, letterhead) if letterhead else None
+
+        # font id (/F1) -> Reference object (7 0 R)
+        self.font_references = {}
+        # required by reportlab fonts handling code:
+        self.fontMapping = {}  # font name (Helvetica) -> font id (/F1)
+        self.delayedFonts = []  # fonts to be rendered
 
     def header(self):
         src = b"%PDF-1.7\n%\xc3\xbf\xc3\xbf\xc3\xbf\xc3\xbf\n"
@@ -49,14 +49,15 @@ class PDFDocument:
     @property
     def footer_refs(self):
         yield self.info
-        for font in self.fonts.values():
-            yield font.description
         yield self.root
         yield self.root.meta['Pages']
 
     def footer(self):
         for ref in self.footer_refs:
             yield from self.finalize_reference(ref)
+
+        for font in self.delayedFonts:
+            yield from read_font(self, font)
 
         yield b"xref\n"
         yield "0 {}\n".format(len(self.references) + 1).encode()

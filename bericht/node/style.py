@@ -70,7 +70,7 @@ class Style(namedtuple('_Style', (
 
             set_attrs=tuple(),
 
-            font='Helvetica',
+            font='OpenSans',
             font_size=12,
             font_weight='',
             font_style='',

@@ -141,7 +141,7 @@ class Paragraph(Block):
         txt = page.begin_text(final_x, final_y)
         x, y, alignment = 0, self.height - style.leading, style.text_align
         txt.set_position(x, y)
-        txt.set_font(page.document.fonts[style.font_name], style.font_size, style.leading)
+        txt.set_font(style.font_name, style.font_size, style.leading)
         for line in self.children:
             if self.style.text_align == TextAlign.right:
                 txt.set_position(self.width - line.width)
@@ -154,14 +154,14 @@ class Paragraph(Block):
                 for part in word.parts:
                     if style != part.style:
                         if fragments:
-                            txt.line(''.join(fragments))
+                            txt.draw(''.join(fragments))
                             fragments = []
                         style = part.style
-                        txt.set_font(page.document.fonts[style.font_name], style.font_size, style.leading)
+                        txt.set_font(style.font_name, style.font_size, style.leading)
                     fragments.append(part.part)
                 fragments.append(' ')
             if fragments and fragments[-1] == ' ':
                 fragments.pop()  # last space
-            txt.line(''.join(fragments), True)
+            txt.draw(''.join(fragments), new_line=True)
         txt.close()
         return final_x, final_y
