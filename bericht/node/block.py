@@ -7,7 +7,7 @@ class Block:
 
     __slots__ = (
         'tag', 'parent', 'id', 'classes', 'style', 'children',
-        'css', 'position', 'nth_type', 'width', 'height',
+        'css', 'position', 'last_child', 'width', 'height',
     )
 
     def __init__(self, tag, parent, id, classes, css, position, children=None):
@@ -20,6 +20,7 @@ class Block:
         self.children = children or []
         self.width = None
         self.height = None
+        self.last_child = False
         self.style = Style.default()
 
     def wrap(self, page, available_width):

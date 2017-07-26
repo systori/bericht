@@ -69,9 +69,18 @@ class HTMLParser:
                 )
 
                 if isinstance(node, Table):
-                    for row in self.traverse(node):
-                        if row.parent.tag == 'tbody':
-                            yield row
+                    row_iter = self.traverse(node)
+                    current_row = next(row_iter)
+                    for next_row in row_iter:
+                        if current_row.parent.tag == 'tbody':
+                            yield current_row
+                        current_row = next_row
+                    for cell in current_row.children:
+                        cell.children[-1].last_child = True
+                    if current_row.children:
+                        current_row.children[-1].last_child = True
+                    current_row.last_child = True
+                    yield current_row
 
                 elif isinstance(node, Paragraph):
                     self.fast_forward_to_end(element)

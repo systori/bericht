@@ -55,6 +55,7 @@ class Style(namedtuple('_Style', (
         'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
 
         'page_break_inside',
+        'page_break_after',
 
         'border_collapse',
         'border_spacing_horizontal',
@@ -104,6 +105,7 @@ class Style(namedtuple('_Style', (
             margin_left=0,
 
             page_break_inside=True,
+            page_break_after=False,
 
             border_collapse=BorderCollapse.separate,
             border_spacing_horizontal=2,
@@ -113,6 +115,7 @@ class Style(namedtuple('_Style', (
         )
 
     def set(self, **attrs):
+        attrs = self.convert(attrs)
         _ts = self._replace(
             set_attrs=tuple(set(self.set_attrs) | set(attrs.keys())),
             **attrs,
@@ -126,6 +129,12 @@ class Style(namedtuple('_Style', (
         return self.set(**{
             attr: getattr(other, attr) for attr in other.set_attrs if attr not in self.set_attrs
         })
+
+    @staticmethod
+    def convert(kwargs):
+        if 'page_break_after' in kwargs:
+            kwargs['page_break_after'] = kwargs['page_break_after'] == 'always'
+        return kwargs
 
     def validate(self, **kwargs):
         for key, value in kwargs.items():

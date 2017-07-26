@@ -17,23 +17,33 @@ class Combinator:
         self.type = None
         self.simple_selectors = []
 
-    def select_tag(self, tag):
+    @staticmethod
+    def select_tag(tag):
         return lambda node: tag == node.tag
 
-    def select_id(self, node_id):
+    @staticmethod
+    def select_id(node_id):
         return lambda node: node_id == node.id
 
-    def select_class(self, name):
+    @staticmethod
+    def select_class(name):
         return lambda node: name in node.classes
 
-    def select_position(self, a_b):
+    @staticmethod
+    def select_position(a_b):
         a, b = a_b
+
         def position_test(node):
             if a == 0:  # nth-child(0n+b)
                 return node.position == b
             else:  # nth-child(an+b)
                 return node.position >= b and (node.position-b) % a == 0
+
         return position_test
+
+    @staticmethod
+    def select_last_child(last_child):
+        return lambda node: last_child == node.last_child
 
     def add(self, selector, value, negate=False):
         matcher = selector(value)
@@ -60,6 +70,7 @@ class Selector:
         for combinator in reversed(self.combinators):
             if not combinator.matches(node):
                 return False
+            node = node.parent
         return True
 
 
@@ -121,6 +132,8 @@ def parse_selectors(prelude):
                 elif prefix == ':':
                     if token.value == 'first':
                         combinator.add(combinator.select_position, (0, 1))
+                    elif token.value in ('last', 'last-child'):
+                        combinator.add(combinator.select_last_child, True)
                     else:
                         raise RuntimeError
                 else:
