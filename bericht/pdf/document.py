@@ -8,12 +8,13 @@ __all__ = ('PDFDocument',)
 
 class PDFDocument:
 
-    def __init__(self, css, letterhead=None):
+    def __init__(self, css, letterhead=None, layout='portrait'):
         self.css = css
         self.ref_ids = 0
         self.offset = 0
         self.references = []
         self.page = None
+        self.layout = layout
         self.root = self.ref({
             'Type': 'Catalog',
             'Pages': self.ref({
@@ -85,6 +86,6 @@ class PDFDocument:
     def add_page(self):
         pages = self.root.meta['Pages'].meta
         pages['Count'] += 1
-        self.page = PDFPage(self, pages['Count'], self.css, 'a4')
+        self.page = PDFPage(self, pages['Count'], self.css, 'a4', self.layout)
         pages['Kids'].append(self.page.dictionary)
         return self.page

@@ -3,9 +3,9 @@ from .document import PDFDocument
 
 class PDFStreamer:
 
-    def __init__(self, block_generator, letterhead=None):
+    def __init__(self, block_generator, letterhead=None, layout='portrait'):
         self.generator = block_generator
-        self.pdf = PDFDocument(block_generator.css, letterhead)
+        self.pdf = PDFDocument(block_generator.css, letterhead, layout)
 
     def __iter__(self):
         yield from self.pdf.header()

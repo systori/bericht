@@ -112,7 +112,6 @@ class Row(Block):
         last = len(self.cell_widths)-1
         for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
             if cell:
-                cell.draw(page, x, y)
                 if False and self.collapsed:
                     self.draw_collapsed_cell_border(
                         None if i == 0 else self.children[i-1],
@@ -120,7 +119,8 @@ class Row(Block):
                         None if i == last else self.children[i+1],
                     )
                 else:
-                    cell.draw_border(page, x, original_y - self.height)
+                    cell.draw_border_and_background(page, x, original_y - self.height)
+                cell.draw(page, x, y)
             x += width + self.cell_spacing / 2.0
         return original_x, original_y - self.height
 

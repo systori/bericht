@@ -71,12 +71,17 @@ class HTMLParser:
                 if isinstance(node, Table):
                     row_iter = self.traverse(node)
                     current_row = next(row_iter)
+                    positions = {}
                     for next_row in row_iter:
+                        positions.setdefault(current_row.parent.tag, -1)
+                        positions[current_row.parent.tag] += 1
+                        next_row.position = positions[current_row.parent.tag]
                         if current_row.parent.tag == 'tbody':
                             yield current_row
                         current_row = next_row
                     for cell in current_row.children:
-                        cell.children[-1].last_child = True
+                        if cell.children:
+                            cell.children[-1].last_child = True
                     if current_row.children:
                         current_row.children[-1].last_child = True
                     current_row.last_child = True
@@ -141,7 +146,7 @@ def extract_words(p, root):
         word_iter = iter(parts)
         style = styles[-1]
         if word_open:
-            words[-1].add(style, next(word_iter))
+            words[-1].add(p, style, next(word_iter))
         words.extend(Word(p, style, word) for word in word_iter)
         word_open = data[-1] not in whitespace
 

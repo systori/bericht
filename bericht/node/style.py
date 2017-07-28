@@ -54,6 +54,8 @@ class Style(namedtuple('_Style', (
 
         'margin_top', 'margin_right', 'margin_bottom', 'margin_left',
 
+        'background_color',
+
         'page_break_inside',
         'page_break_after',
 
@@ -86,16 +88,16 @@ class Style(namedtuple('_Style', (
             padding_bottom=0,
             padding_left=0,
 
-            border_top_color=black,
+            border_top_color=(0, 0, 0, 1),
             border_top_style=BorderStyle.solid,
             border_top_width=0,
-            border_right_color=black,
+            border_right_color=(0, 0, 0, 1),
             border_right_style=BorderStyle.solid,
             border_right_width=0,
-            border_bottom_color=black,
+            border_bottom_color=(0, 0, 0, 1),
             border_bottom_style=BorderStyle.solid,
             border_bottom_width=0,
-            border_left_color=black,
+            border_left_color=(0, 0, 0, 1),
             border_left_style=BorderStyle.solid,
             border_left_width=0,
 
@@ -103,6 +105,8 @@ class Style(namedtuple('_Style', (
             margin_right=0,
             margin_bottom=0,
             margin_left=0,
+
+            background_color=None,
 
             page_break_inside=True,
             page_break_after=False,

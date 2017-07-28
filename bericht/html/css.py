@@ -1,4 +1,7 @@
-from tinycss2 import parse_stylesheet, parse_declaration_list, parse_one_component_value, ast, nth
+from tinycss2 import (
+    parse_stylesheet, parse_declaration_list, parse_one_component_value,
+    ast, nth, color3
+)
 from bericht.node.style import Style
 
 __all__ = ('CSS',)
@@ -81,7 +84,10 @@ class Declarations:
         self.attrs = {}
         for declaration in parse_declaration_list(content, skip_comments=True, skip_whitespace=True):
             value_component = parse_one_component_value(declaration.value, skip_comments=True)
-            self.attrs[declaration.name.replace('-', '_')] = value_component.value
+            if 'color' in declaration.name:
+                self.attrs[declaration.name.replace('-', '_')] = color3.parse_color(value_component)
+            else:
+                self.attrs[declaration.name.replace('-', '_')] = value_component.value
 
     def apply(self, node):
         if node.style:
@@ -135,16 +141,18 @@ def parse_selectors(prelude):
                     elif token.value in ('last', 'last-child'):
                         combinator.add(combinator.select_last_child, True)
                     else:
-                        raise RuntimeError
+                        raise NotImplementedError
                 else:
-                    raise RuntimeError
+                    raise NotImplementedError
                 prefix = None
             elif isinstance(token, ast.FunctionBlock):
                 prefix = None
                 if token.name == 'nth-child':
                     combinator.add(combinator.select_position, nth.parse_nth(token.arguments))
+                elif token.name == 'nth-of-type':
+                    raise NotImplementedError
             else:
-                raise RuntimeError
+                raise NotImplementedError
 
     selectors.append(Selector(combinators))
 

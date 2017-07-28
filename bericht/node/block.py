@@ -32,26 +32,29 @@ class Block:
     def draw(self, page, x, y):
         raise NotImplementedError
 
-    def draw_border(self, page, x, y):
+    def draw_border_and_background(self, page, x, y):
         page.save_state()
         page.translate(x, y)
         s = self.style
         top_left, top_right, bottom_left, bottom_right = self.border_box
+        if s.background_color:
+            page.fill_color(*s.background_color)
+            page.rectangle(0, 0, self.width, self.height)
         if s.border_top_width > 0:
             page.line_width(s.border_top_width)
-            page.stroke_color(s.border_top_color)
+            page.stroke_color(*s.border_top_color)
             page.line(*top_left, *top_right)
         if s.border_right_width > 0:
             page.line_width(s.border_right_width)
-            page.stroke_color(s.border_right_color)
+            page.stroke_color(*s.border_right_color)
             page.line(*top_right, *bottom_right)
         if s.border_bottom_width > 0:
             page.line_width(s.border_bottom_width)
-            page.stroke_color(s.border_bottom_color)
+            page.stroke_color(*s.border_bottom_color)
             page.line(*bottom_left, *bottom_right)
         if s.border_left_width > 0:
             page.line_width(s.border_left_width)
-            page.stroke_color(s.border_left_color)
+            page.stroke_color(*s.border_left_color)
             page.line(*top_left, *bottom_left)
         page.restore_state()
 

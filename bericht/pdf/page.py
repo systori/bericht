@@ -7,7 +7,7 @@ class PDFPage:
 
     tag = '@page'
 
-    def __init__(self, document, page_number, css, size='letter'):
+    def __init__(self, document, page_number, css, size='letter', layout='portrait'):
         self.parent = None
         self.classes = []
         self.style = None
@@ -16,7 +16,7 @@ class PDFPage:
 
         self.document = document
         self.size = size
-        self.layout = 'portrait'
+        self.layout = layout
 
         dimensions = SIZES[self.size.upper()]
         self.width = dimensions[0 if self.layout is 'portrait' else 1]
@@ -95,12 +95,19 @@ class PDFPage:
     def line_width(self, width):
         self.write("{} w\n".format(width))
 
-    def stroke_color(self, color):
-        pass
-        #self.write("{} w".format(color))
+    def stroke_color(self, r, g, b, a):
+        assert a == 1, "TODO: implement alpha"
+        self.write("{} {} {} RG\n".format(r, g, b))
 
     def line(self, x1, y1, x2, y2):
         self.write("n {} {} m {} {} l S\n".format(x1, y1, x2, y2))
+
+    def fill_color(self, r, g, b, a):
+        assert a == 1, "TODO: implement alpha"
+        self.write("{} {} {} rg\n".format(r, g, b))
+
+    def rectangle(self, x, y, width, height):
+        self.write("n {} {} {} {} re f*\n".format(x, y, width, height))
 
 
 DEFAULT_MARGINS = {
