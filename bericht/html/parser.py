@@ -69,23 +69,29 @@ class HTMLParser:
                 )
 
                 if isinstance(node, Table):
-                    row_iter = self.traverse(node)
-                    current_row = next(row_iter)
-                    positions = {}
-                    for next_row in row_iter:
-                        positions.setdefault(current_row.parent.tag, -1)
-                        positions[current_row.parent.tag] += 1
-                        next_row.position = positions[current_row.parent.tag]
-                        if current_row.parent.tag == 'tbody':
-                            yield current_row
-                        current_row = next_row
-                    for cell in current_row.children:
-                        if cell.children:
-                            cell.children[-1].last_child = True
-                    if current_row.children:
-                        current_row.children[-1].last_child = True
-                    current_row.last_child = True
-                    yield current_row
+                    if parent is None:
+                        row_iter = self.traverse(node)
+                        current_row = next(row_iter)
+                        positions = {}
+                        for next_row in row_iter:
+                            positions.setdefault(current_row.parent.tag, -1)
+                            positions[current_row.parent.tag] += 1
+                            next_row.position = positions[current_row.parent.tag]
+                            if current_row.parent.tag == 'tbody':
+                                yield current_row
+                            current_row = next_row
+                        for cell in current_row.children:
+                            if cell.children:
+                                cell.children[-1].last_child = True
+                        if current_row.children:
+                            current_row.children[-1].last_child = True
+                        current_row.last_child = True
+                        yield current_row
+                    else:
+                        node.buffered = True
+                        for _ in self.traverse(node):
+                            pass
+                        yield node
 
                 elif isinstance(node, Paragraph):
                     self.fast_forward_to_end(element)

@@ -22,6 +22,11 @@ class Block:
         self.height = None
         self.last_child = False
         self.style = Style.default()
+        if self.parent:
+            self.parent.add(self)
+
+    def add(self, child):
+        self.children.append(child)
 
     def wrap(self, page, available_width):
         raise NotImplementedError

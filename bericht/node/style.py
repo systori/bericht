@@ -59,6 +59,8 @@ class Style(namedtuple('_Style', (
         'page_break_inside',
         'page_break_after',
 
+        'page_bottom_right_content',
+
         'border_collapse',
         'border_spacing_horizontal',
         'border_spacing_vertical',
@@ -110,6 +112,8 @@ class Style(namedtuple('_Style', (
 
             page_break_inside=True,
             page_break_after=False,
+
+            page_bottom_right_content='',
 
             border_collapse=BorderCollapse.separate,
             border_spacing_horizontal=2,

@@ -16,8 +16,6 @@ class Row(Block):
         self.collapsed = False
         self.cell_widths = []
         self.cell_spacing = 0
-        if self.parent.tag in ('thead', 'tfoot'):
-            self.parent.children.append(self)
 
     @property
     def table(self):

@@ -14,7 +14,6 @@ class Cell(Block):
         self.collapsed = False
         self.content_heights = None
         self.colspan = colspan
-        self.parent.children.append(self)
 
     @property
     def frame_top(self):

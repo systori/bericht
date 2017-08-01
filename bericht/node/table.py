@@ -21,6 +21,9 @@ class ColumnGroup:
         self.span = None
         parent.columns = self
 
+    def add(self, child):
+        self.children.append(child)
+
     def get_widths(self, page, available_width):
         if self.widths is None:
             if self.span is None:
@@ -110,6 +113,9 @@ class RowGroup:
         self.drawn_on = None
         setattr(parent, tag, self)
 
+    def add(self, child):
+        self.children.append(child)
+
     def wrap(self, page, available_width):
         header_height = 0
         self.css.apply(self)
@@ -129,7 +135,7 @@ class RowGroup:
 
 class Table(Block):
 
-    __slots__ = ('columns', 'thead', 'tbody', 'tfoot')
+    __slots__ = ('columns', 'thead', 'tbody', 'tfoot', 'buffered', 'row_heights')
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -137,9 +143,14 @@ class Table(Block):
         self.thead = None
         self.tbody = None
         self.tfoot = None
+        self.buffered = False
         self.css.apply(self)
         if self.parent:
             self.style = self.style.inherit(self.parent.style)
+
+    def add(self, child):
+        if self.buffered:
+            super().add(child)
 
     @classmethod
     def make(cls, parent=None, id=None, classes=None, style=None):
@@ -147,7 +158,7 @@ class Table(Block):
 
     def get_tbody(self):
         if not self.tbody:
-            self.tbody = RowGroup('tbody', self)
+            self.tbody = RowGroup('tbody', self, css=self.css)
         return self.tbody
 
     def get_column_widths(self, page, row, available_width):
@@ -163,6 +174,18 @@ class Table(Block):
             return self.tfoot.wrap(page, available_width)
         return 0
 
+    def wrap(self, page, available_width):
+        self.css.apply(self)
+        if self.parent:
+            self.style = self.style.inherit(self.parent.style)
+        self.height = (
+            self.reserve_header_height(page, available_width) +
+            self.tbody.wrap(page, available_width) +
+            self.reserve_header_height(page, available_width)
+        )
+        self.width = available_width
+        return self.width, self.height
+
     def draw_header(self, page, x, y):
         if self.thead and self.thead.drawn_on != page.page_number:
             return self.thead.draw(page, x, y)
@@ -173,15 +196,13 @@ class Table(Block):
             return self.tfoot.draw(page, x, y)
         return x, y
 
-    def draw(self):
-        x = self.frame_left
-        y = self.height - self.frame_top
-        for row, height in zip(self.rows, self.content_heights):
-            y -= height
-            row.drawOn(self.canv, x, y)
-        self.draw_border()
+    def draw(self, page, x, y):
+        x, y = self.draw_header(page, x, y)
+        x, y = self.tbody.draw(page, x, y)
+        x, y = self.draw_footer(page, x, y)
+        return x, y
 
-    def wrap(self, available_width, _=None):
+    def old_wrap(self, available_width, _=None):
         collapsed = self.style.border_collapse == BorderCollapse.collapse
         columns_available_width = available_width - self.frame_width
         vspacing = hspacing = 0
@@ -202,7 +223,7 @@ class Table(Block):
             self.height += height
         return available_width, self.height
 
-    def split(self, available_width, available_height):
+    def old_split(self, available_width, available_height):
         if self.content_heights is None:
             self.wrap(available_width)
 

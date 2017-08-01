@@ -1,4 +1,5 @@
 from .text import PDFText
+from bericht.node.text import stringWidth
 
 __all__ = ('PDFPage',)
 
@@ -31,6 +32,7 @@ class PDFPage:
         self.x = margins['left']
         self.y = self.height - margins['top']
         self.available_width = self.width - self.x - margins['right']
+        self.margins = margins
 
         self.content = document.ref()
 
@@ -55,6 +57,18 @@ class PDFPage:
             'Resources': self.resources,
         })
 
+        if self.style.page_bottom_right_content:
+            style = self.style.set(font_size=9)
+            page_text = self.style.page_bottom_right_content(self)
+            text_width = stringWidth(page_text, style.font_name, style.font_size)
+            text = self.begin_text(
+                (self.margins['left'] + self.available_width) - text_width,
+                self.margins['bottom'] - style.leading*2
+            )
+            text.set_font(style.font_name, style.leading, style.font_size)
+            text.draw(page_text)
+            text.close()
+
     @property
     def page_number(self):
         return self.position
@@ -65,7 +79,7 @@ class PDFPage:
 
     @property
     def available_height(self):
-        return self.y - DEFAULT_MARGINS['bottom']
+        return self.y - self.margins['bottom']
 
     @property
     def font(self):

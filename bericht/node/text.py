@@ -75,8 +75,6 @@ class Paragraph(Block):
     def __init__(self, *args):
         super().__init__(*args)
         self.words = []
-        if self.parent:
-            self.parent.children.append(self)
 
     def __str__(self):
         return ' '.join(str(word) for word in self.words)

@@ -83,11 +83,20 @@ class Declarations:
         self.content = content
         self.attrs = {}
         for declaration in parse_declaration_list(content, skip_comments=True, skip_whitespace=True):
-            value_component = parse_one_component_value(declaration.value, skip_comments=True)
-            if 'color' in declaration.name:
-                self.attrs[declaration.name.replace('-', '_')] = color3.parse_color(value_component)
+            if isinstance(declaration, ast.AtRule):
+                if declaration.at_keyword == 'bottom-right':
+                    at_dec = Declarations(declaration.content)
+                    self.attrs['page_bottom_right_content'] = at_dec.attrs['content']
+                else:
+                    raise NotImplementedError
             else:
-                self.attrs[declaration.name.replace('-', '_')] = value_component.value
+                value_component = parse_one_component_value(declaration.value, skip_comments=True)
+                if 'color' in declaration.name:
+                    self.attrs[declaration.name.replace('-', '_')] = color3.parse_color(value_component)
+                elif 'content' == declaration.name:
+                    self.attrs[declaration.name.replace('-', '_')] = parse_content_value(declaration.value)
+                else:
+                    self.attrs[declaration.name.replace('-', '_')] = value_component.value
 
     def apply(self, node):
         if node.style:
@@ -95,6 +104,26 @@ class Declarations:
         else:
             parent = Style.default() if node.parent is None else node.parent.style
             node.style = parent.set(**self.attrs)
+
+
+def parse_content_value(value):
+    parts = []
+    for part in value:
+        if isinstance(part, ast.StringToken):
+            parts.append(part.value)
+        elif isinstance(part, ast.FunctionBlock):
+            if part.lower_name == 'counter' and part.arguments[0].lower_value == 'page':
+                parts.append(lambda page: page.page_number)
+            else:
+                raise NotImplementedError
+        elif isinstance(part, ast.WhitespaceToken):
+            pass
+        else:
+            raise NotImplementedError
+
+    return lambda page: ''.join(
+        [p if isinstance(p, str) else str(p(page)) for p in parts]
+    )
 
 
 def parse_selectors(prelude):
