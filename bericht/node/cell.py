@@ -71,17 +71,19 @@ class Cell(Block):
     def wrap(self, page, available_width):
         self.width = available_width
         self.content_heights = []
-        content_width = available_width - self.frame_width
 
         self.css.apply(self)
         if self.parent:
             self.style = self.style.inherit(self.parent.style)
+
+        content_width = available_width - self.frame_width
 
         consumed = 0
         for block in self.children:
             _, height = block.wrap(page, content_width)
             consumed += height
             self.content_heights.append(height)
+
         self.height = self.frame_height + consumed
         return available_width, self.height
 
