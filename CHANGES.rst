@@ -1,3 +1,8 @@
+0.0.6
+-----
+
+* Proper handling of /DescendantFonts when creating letterhead XObject.
+
 0.0.5
 -----
 
