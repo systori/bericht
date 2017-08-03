@@ -24,6 +24,8 @@ class PDFLetterhead:
             }, name='Letterhead{}'.format(letterhead_num))
             if template_page.Filter:
                 form.meta['Filter'] = 'FlateDecode'
+            if template_page.Resources.ExtGState:
+                form.meta['Resources']['ExtGState'] = template_page.Resources.ExtGState
             form.write(template_page.stream.encode('latin'))
             self.pages.append(form)
             letterhead_num += 1
@@ -35,7 +37,7 @@ class PDFLetterhead:
 
             font = fonts[font_id] = doc.ref({
                 key: font_ref[key] for key in
-                set(font_ref.keys()) - {'/ToUnicode', '/FontDescriptor'}
+                set(font_ref.keys()) - {'/ToUnicode', '/FontDescriptor', '/DescendantFonts'}
             })
             self.font_objects.append(fonts[font_id])
 
@@ -45,21 +47,44 @@ class PDFLetterhead:
                 self.font_objects.append(font.meta['ToUnicode'])
 
             if font_ref.FontDescriptor:
-                fd = font.meta['FontDescriptor'] = doc.ref()
-                for key, value in font_ref.FontDescriptor.iteritems():
-                    if key.startswith('/FontFile'):
-                        ff = doc.ref({
-                            key: value for key, value in value.iteritems()
-                            if key in ('/Filter', '/Subtype')
-                        })
-                        ff.write(value.stream.encode('latin'))
-                        self.font_objects.append(ff)
-                        fd.meta[key] = ff
-                    else:
-                        fd.meta[key] = value
-                self.font_objects.append(fd)
+                font.meta['FontDescriptor'] = self.get_font_descriptor(font_ref.FontDescriptor)
+
+            if font_ref.DescendantFonts:
+                dfs = font.meta['DescendantFonts'] = []
+                for descendant in font_ref.DescendantFonts:
+                    dfont = doc.ref({
+                        key: descendant[key] for key in
+                        set(descendant.keys()) - {'/FontDescriptor'}
+                    })
+                    dfont.meta['FontDescriptor'] = self.get_font_descriptor(descendant.FontDescriptor)
+                    dfs.append(dfont)
+                    self.font_objects.append(dfont)
 
         return fonts
+
+    def get_font_descriptor(self, descriptor):
+        fd = self.document.ref()
+        for key, value in descriptor.iteritems():
+            if key.startswith('/FontFile'):
+                ff = self.document.ref({
+                    key: value for key, value in value.iteritems()
+                    if key in ('/Filter', '/Subtype')
+                })
+                ff.write(value.stream.encode('latin'))
+                self.font_objects.append(ff)
+                fd.meta[key] = ff
+            elif key.startswith('/CIDSet'):
+                cidset = self.document.ref({
+                    key: value for key, value in value.iteritems()
+                    if key in ('/Filter', '/Subtype')
+                })
+                cidset.write(value.stream.encode('latin'))
+                self.font_objects.append(cidset)
+                fd.meta[key] = cidset
+            else:
+                fd.meta[key] = value
+        self.font_objects.append(fd)
+        return fd
 
     def read(self):
         for obj in self.font_objects:

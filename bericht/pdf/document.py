@@ -24,7 +24,7 @@ class PDFDocument:
             })
         })
         self.info = self.ref({
-            'Producer': 'bericht',
+            'Producer': '(bericht)',
         })
         self.letterhead = PDFLetterhead(self, letterhead) if letterhead else None
 

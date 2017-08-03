@@ -14,7 +14,9 @@ def serialize(meta):
     elif isinstance(meta, (PdfObject, PdfString)):
         yield str(meta).encode()
     elif isinstance(meta, str):
-        if not meta.startswith('/'):
+        if meta.startswith('(') and meta.endswith(')'):
+            pass
+        elif not meta.startswith('/'):
             meta = '/'+meta
         yield meta.encode()
     elif isinstance(meta, list):
