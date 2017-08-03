@@ -20,9 +20,10 @@ class PDFLetterhead:
                 'Subtype': 'Form',
                 'FormType': 1,
                 'BBox': template_page.BBox,
-                'Filter': 'FlateDecode',
                 'Resources': {'Font': fonts}
             }, name='Letterhead{}'.format(letterhead_num))
+            if template_page.Filter:
+                form.meta['Filter'] = 'FlateDecode'
             form.write(template_page.stream.encode('latin'))
             self.pages.append(form)
             letterhead_num += 1
