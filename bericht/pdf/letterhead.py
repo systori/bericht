@@ -38,23 +38,25 @@ class PDFLetterhead:
             })
             self.font_objects.append(fonts[font_id])
 
-            font.meta['ToUnicode'] = doc.ref()
-            font.meta['ToUnicode'].write(font_ref.ToUnicode.stream.encode('latin'))
-            self.font_objects.append(font.meta['ToUnicode'])
+            if font_ref.ToUnicode:
+                font.meta['ToUnicode'] = doc.ref()
+                font.meta['ToUnicode'].write(font_ref.ToUnicode.stream.encode('latin'))
+                self.font_objects.append(font.meta['ToUnicode'])
 
-            fd = font.meta['FontDescriptor'] = doc.ref()
-            for key, value in font_ref.FontDescriptor.iteritems():
-                if key.startswith('/FontFile'):
-                    ff = doc.ref({
-                        key: value for key, value in value.iteritems()
-                        if key in ('/Filter', '/Subtype')
-                    })
-                    ff.write(value.stream.encode('latin'))
-                    self.font_objects.append(ff)
-                    fd.meta[key] = ff
-                else:
-                    fd.meta[key] = value
-            self.font_objects.append(fd)
+            if font_ref.FontDescriptor:
+                fd = font.meta['FontDescriptor'] = doc.ref()
+                for key, value in font_ref.FontDescriptor.iteritems():
+                    if key.startswith('/FontFile'):
+                        ff = doc.ref({
+                            key: value for key, value in value.iteritems()
+                            if key in ('/Filter', '/Subtype')
+                        })
+                        ff.write(value.stream.encode('latin'))
+                        self.font_objects.append(ff)
+                        fd.meta[key] = ff
+                    else:
+                        fd.meta[key] = value
+                self.font_objects.append(fd)
 
         return fonts
 

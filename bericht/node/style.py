@@ -56,6 +56,7 @@ class Style(namedtuple('_Style', (
 
         'background_color',
 
+        'page_break_before',
         'page_break_inside',
         'page_break_after',
 
@@ -110,6 +111,7 @@ class Style(namedtuple('_Style', (
 
             background_color=None,
 
+            page_break_before=False,
             page_break_inside=True,
             page_break_after=False,
 
@@ -140,6 +142,8 @@ class Style(namedtuple('_Style', (
 
     @staticmethod
     def convert(kwargs):
+        if 'page_break_before' in kwargs:
+            kwargs['page_break_before'] = kwargs['page_break_before'] == 'always'
         if 'page_break_after' in kwargs:
             kwargs['page_break_after'] = kwargs['page_break_after'] == 'always'
         return kwargs

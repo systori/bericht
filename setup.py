@@ -14,7 +14,7 @@ long_description = '\n\n'.join((
 
 setup(
     name='bericht',
-    version='0.0.1',
+    version='0.0.4',
     url='https://github.com/systori/bericht',
     license='BSD',
     description='Improved tabular report generation with ReportLab.',
@@ -30,7 +30,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: User Interfaces',
     ],
-    install_requires=['reportlab'],
+    install_requires=['reportlab', 'pdfrw', 'tinycss2'],
     packages=find_packages(exclude=('bericht.tests',)),
     include_package_data=True
 )

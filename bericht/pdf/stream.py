@@ -12,8 +12,16 @@ class PDFStreamer:
         page = None
         for block in self.generator:
             while block:
-                page = page or self.pdf.add_page()
+                page_created = False
+                if page is None:
+                    page = self.pdf.add_page()
+                    page_created = True
                 _, requested_height = block.wrap(page, page.available_width)
+                if block.style.page_break_before:
+                    if not page_created:
+                        yield from page.read()
+                        page = self.pdf.add_page()
+                        _, requested_height = block.wrap(page, page.available_width)
                 if requested_height <= page.available_height:
                     page.x, page.y = block.draw(page, page.x, page.y)
                     if block.style.page_break_after:
