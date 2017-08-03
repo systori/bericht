@@ -1,3 +1,8 @@
+0.0.5
+-----
+
+* Template bug fix related to compression.
+
 0.0.4
 -----
 
