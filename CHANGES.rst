@@ -1,3 +1,8 @@
+0.0.7
+-----
+
+* Proper handling of XObject Resources in letterheads.
+
 0.0.6
 -----
 
