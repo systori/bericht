@@ -1,3 +1,8 @@
+0.0.9
+-----
+
+* Ignore letterhead-page style setting if no letterhead is available.
+
 0.0.8
 -----
 
