@@ -6,6 +6,26 @@ from bericht.node.style import Style
 
 __all__ = ('CSS',)
 
+inch = 72.0
+cm = inch / 2.54
+mm = cm * 0.1
+
+units = {
+    'px': 1,
+    'pt': 1,
+    'mm': mm,
+    'cm': cm,
+    'inch': inch
+}
+
+
+def convert(unit, value):
+    if unit in units:
+        return value * units[unit]
+    raise NotImplementedError(
+        'Dimension unit "{}" is not implemented yet.'.format(value)
+    )
+
 
 class Combinator:
 
@@ -95,6 +115,10 @@ class Declarations:
                     self.attrs[declaration.name.replace('-', '_')] = color3.parse_color(value_component)
                 elif 'content' == declaration.name:
                     self.attrs[declaration.name.replace('-', '_')] = parse_content_value(declaration.value)
+                elif isinstance(value_component, ast.DimensionToken):
+                    self.attrs[declaration.name.replace('-', '_')] = convert(
+                        value_component.lower_unit, value_component.value
+                    )
                 else:
                     self.attrs[declaration.name.replace('-', '_')] = value_component.value
 
