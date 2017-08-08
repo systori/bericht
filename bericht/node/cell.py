@@ -67,6 +67,7 @@ class Cell(Block):
 
         for block, height in zip(self.children, self.content_heights):
             block.draw(page, x, y)
+            y -= height
 
     def wrap(self, page, available_width):
         self.width = available_width
