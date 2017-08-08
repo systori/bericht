@@ -1,3 +1,8 @@
+0.0.10
+-----
+
+* Bug fix: Cell properly renders multiple paragraphs.
+
 0.0.9
 -----
 
