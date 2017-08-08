@@ -41,7 +41,7 @@ class PDFPage:
             'ProcSet': ['PDF', 'Text', 'ImageB', 'ImageC', 'ImageI'],
         })
 
-        if self.style and 'letterhead_page' in self.style.set_attrs:
+        if self.style and 'letterhead_page' in self.style.set_attrs and self.document.letterhead:
             letterhead_page = self.document.letterhead[int(self.style.letterhead_page)-1]
             self.resources.meta.update({
                 'XObject': {letterhead_page.name: letterhead_page}
