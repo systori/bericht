@@ -1,3 +1,8 @@
+0.0.11
+-----
+
+* Bug fix: Measuring column width with <bericht-col> includes padding now.
+
 0.0.10
 -----
 
