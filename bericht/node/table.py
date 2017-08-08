@@ -44,7 +44,7 @@ class ColumnGroup:
                 width = c.text_width(page, available_width)
             elif c.is_min_content:
                 width = c.text_width(page, 0)
-            widths.append(width)
+            widths.append(c.frame_left + width + c.frame_right)
 
         fixed = sum(widths)
 
