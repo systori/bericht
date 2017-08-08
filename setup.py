@@ -14,7 +14,7 @@ long_description = '\n\n'.join((
 
 setup(
     name='bericht',
-    version='0.0.7',
+    version='0.0.8',
     url='https://github.com/systori/bericht',
     license='BSD',
     description='Improved tabular report generation with ReportLab.',

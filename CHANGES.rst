@@ -1,3 +1,8 @@
+0.0.8
+-----
+
+* CSS supports mm, cm and inch dimensions.
+
 0.0.7
 -----
 
