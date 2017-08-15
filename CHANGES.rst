@@ -1,3 +1,8 @@
+0.0.12
+-----
+
+* Replaced <bericht-col> with multi-pass column measurement.
+
 0.0.11
 -----
 
