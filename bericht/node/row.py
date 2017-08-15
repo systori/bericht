@@ -49,7 +49,7 @@ class Row(Block):
         )
 
     def _wrap(self, page, available_width):
-        column_widths = self.table.get_column_widths(page, self, available_width)
+        column_widths = self.table.get_column_widths(available_width)
         self.width = available_width
         cell_widths = self.cell_widths = []
 

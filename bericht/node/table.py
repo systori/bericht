@@ -1,6 +1,6 @@
 from .block import Block
-from .text import Paragraph
 from .style import Style, BorderCollapse
+from .text import Paragraph
 
 
 __all__ = ['Table', 'ColumnGroup', 'Column', 'RowGroup']
@@ -15,36 +15,32 @@ class ColumnGroup:
         self.classes = classes or []
         self.css = css
         self.position = position
-        self.style = Style.default()
         self.children = []
         self.widths = None
+        self.measurements = None
         self.span = None
         parent.columns = self
 
     def add(self, child):
         self.children.append(child)
 
-    def get_widths(self, page, available_width):
+    @property
+    def count(self):
+        if self.span is not None:
+            return self.span
+        return len(self.children)
+
+    def get_widths(self, available_width):
         if self.widths is None:
             if self.span is None:
-                self.calculate_widths(page, available_width)
+                self.calculate_widths(available_width)
             else:
                 self.widths = [available_width/self.span] * self.span
         return self.widths
 
-    def calculate_widths(self, page, available_width):
+    def calculate_widths(self, available_width):
 
-        widths = []
-
-        for c in self.children:
-            width = 0
-            if c.is_fixed:
-                width = c.fixed
-            elif c.is_max_content:
-                width = c.text_width(page, available_width)
-            elif c.is_min_content:
-                width = c.text_width(page, 0)
-            widths.append(c.frame_left + width + c.frame_right)
+        widths = self.measurements[:]
 
         fixed = sum(widths)
 
@@ -61,12 +57,38 @@ class ColumnGroup:
 
         self.widths = widths
 
+    def measure(self, row, maximums):
+        if not self.children: return
+        cols = iter(self.children)
+        icol = 0
+        for cell in row.children:
+            if not cell or cell.colspan == 1:
+                col = next(cols)
+                if cell and cell.children:
+                    assert isinstance(cell.children[0], Paragraph)
+                    cell.css.apply(cell)
+                    maximums[icol] = max(maximums[icol], col.measure(cell.children[0]))
+                icol += 1
+            else:
+                # multi-column spans aren't measured
+                for _ in range(cell.colspan):
+                    next(cols)
+                    icol += 1
 
-class Column(Paragraph):
 
-    def __init__(self, *args):
-        super().__init__(*args)
+class Column:
+
+    def __init__(self, tag, parent, id=None, classes=None, css=None, position=None):
+        self.tag = tag
+        self.parent = parent
+        self.id = id
+        self.classes = classes or []
+        self.css = css
+        self.position = position
+        self.style = Style.default()
+        self.children = []
         self.width_spec = ''
+        self.parent.add(self)
 
     @property
     def is_fixed(self):
@@ -92,11 +114,14 @@ class Column(Paragraph):
     def proportion(self):
         return int(self.width_spec[:-1])
 
-    def text_width(self, page, available_width):
-        if self.words:
-            return self.wrap(page, available_width)[0]
-        else:
-            return 0
+    def measure(self, row):
+        if self.is_fixed:
+            return self.fixed
+        elif self.is_max_content:
+            return row.wrap(None, 1000)[0]
+        elif self.is_min_content:
+            return row.wrap(None, 0)[0]
+        return 0
 
 
 class RowGroup:
@@ -161,8 +186,13 @@ class Table(Block):
             self.tbody = RowGroup('tbody', self, css=self.css)
         return self.tbody
 
-    def get_column_widths(self, page, row, available_width):
-        return self.columns.get_widths(page, available_width)
+    def get_columns(self):
+        if self.columns is None:
+            self.columns = ColumnGroup('colgroup', self)
+        return self.columns
+
+    def get_column_widths(self, available_width):
+        return self.get_columns().get_widths(available_width)
 
     def reserve_header_height(self, page, available_width):
         if self.thead and self.thead.drawn_on != page.page_number:

@@ -22,7 +22,7 @@ TAG_MAP = {
     'p': Paragraph,
     'table': Table,
     'colgroup': ColumnGroup,
-    'bericht-col': Column,
+    'col': Column,
     'thead': RowGroup,
     'tbody': RowGroup,
     'tfoot': RowGroup,
@@ -37,17 +37,9 @@ STYLE_TAGS = 'b', 'strong', 'i', 'u', 'span', 'br'
 class HTMLParser:
 
     def __init__(self, html_generator, css=None):
-        parser = etree.HTMLPullParser(
-            events=('start', 'end',),
-            tag=BLOCK_TAGS + STYLE_TAGS,
-            remove_comments=True
-        )
-        self.events = pumper(
-            html_generator,
-            parser.feed,
-            parser.read_events()
-        )
+        self.html_generator = html_generator
         self.css = css
+        self.table_columns = None
 
     def traverse(self, parent=None):
         for event, element in self.events:
@@ -97,8 +89,10 @@ class HTMLParser:
                     self.fast_forward_to_end(element)
                     node.style = Style.default()
                     extract_words(node, element)
-                    if isinstance(node, Column):
-                        node.width_spec = element.attrib.get('width', '')
+                    yield node
+
+                elif isinstance(node, Column):
+                    node.width_spec = element.attrib.get('width', '')
                     yield node
 
                 else:
@@ -110,6 +104,8 @@ class HTMLParser:
                         span = element.attrib.get('span')
                         if span:
                             node.span = int(span)
+                        if self.table_columns:
+                            node.measurements = self.table_columns.pop(0)
 
                     for _ in self.traverse(node):
                         pass
@@ -118,7 +114,11 @@ class HTMLParser:
 
             else:
 
-                break
+                if tag == 'col':
+                    continue
+
+                else:
+                    break
 
     def fast_forward_to_end(self, end):
         """ Fast forwarding (parsing) to end tag loads
@@ -132,7 +132,34 @@ class HTMLParser:
                 return
         raise RuntimeError('End element not reached.')
 
+    def reset_parser(self):
+        parser = etree.HTMLPullParser(
+            events=('start', 'end',),
+            tag=BLOCK_TAGS + STYLE_TAGS,
+            remove_comments=True
+        )
+        self.events = pumper(
+            self.html_generator(),
+            parser.feed,
+            parser.read_events()
+        )
+
+    def measure_column_widths(self):
+        table_columns = []
+        columns = None
+        for node in self.traverse():
+            if isinstance(node, Row):
+                if node.parent.parent.get_columns() is not columns:
+                    columns = node.parent.parent.get_columns()
+                    table_columns.append([0]*columns.count)
+                columns.measure(node, table_columns[-1])
+        return table_columns
+
     def __iter__(self):
+        if self.table_columns is None:
+            self.reset_parser()
+            self.table_columns = self.measure_column_widths()
+        self.reset_parser()
         yield from self.traverse()
 
 
