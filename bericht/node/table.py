@@ -67,7 +67,7 @@ class ColumnGroup:
                 if cell and cell.children:
                     assert isinstance(cell.children[0], Paragraph)
                     cell.css.apply(cell)
-                    maximums[icol] = max(maximums[icol], col.measure(cell.children[0]))
+                    maximums[icol] = max(maximums[icol], col.measure(cell.children[0]) + cell.frame_width)
                 icol += 1
             else:
                 # multi-column spans aren't measured
