@@ -176,7 +176,7 @@ def parse_selectors(prelude):
             if not combinator:
                 combinator = Combinator()
                 combinators.append(combinator)
-            if token in ('.', '#', ':'):
+            if token in ('.', ':'):
                 if not prefix:
                     prefix = token.value
                 else:
@@ -186,8 +186,6 @@ def parse_selectors(prelude):
                     combinator.add(combinator.select_tag, token.value)
                 elif prefix == '.':
                     combinator.add(combinator.select_class, token.value)
-                elif prefix == '#':
-                    combinator.add(combinator.select_id, token.value)
                 elif prefix == ':':
                     if token.value == 'first':
                         combinator.add(combinator.select_position, (0, 1))
@@ -198,6 +196,9 @@ def parse_selectors(prelude):
                 else:
                     raise NotImplementedError
                 prefix = None
+            elif isinstance(token, ast.HashToken):
+                prefix = None
+                combinator.add(combinator.select_id, token.value)
             elif isinstance(token, ast.FunctionBlock):
                 prefix = None
                 if token.name == 'nth-child':
