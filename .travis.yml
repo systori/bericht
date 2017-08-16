@@ -1,0 +1,18 @@
+language: python
+
+python:
+  - "3.5"
+  - "3.6"
+  - "nightly"
+
+before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+
+install:
+  - pip install -e .
+
+script:
+  - coverage run -m unittest bericht.tests.test_css
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT; fi
+
