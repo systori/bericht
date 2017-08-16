@@ -1,4 +1,4 @@
-|pypi| |travis-ci| |codeclimate| |coverage|
+|pypi| |travis-ci| |cc-grade| |cc-issues| |coverage|
 
 =======
 bericht
@@ -20,9 +20,13 @@ you should find a `test.pdf` file in the location where you started python
    :target: https://travis-ci.org/systori/bericht
    :alt: Build
 
-.. |codeclimate| image:: https://codeclimate.com/github/systori/bericht/badges/gpa.svg
+.. |cc-grade| image:: https://codeclimate.com/github/systori/bericht/badges/gpa.svg
    :target: https://codeclimate.com/github/systori/bericht
    :alt: Code Climate
+
+.. |cc-issues| image:: https://codeclimate.com/github/systori/bericht/badges/issue_count.svg
+   :target: https://codeclimate.com/github/systori/bericht
+   :alt: Issue Count
 
 .. |coverage| image:: https://codeclimate.com/github/systori/bericht/badges/coverage.svg
    :target: https://codeclimate.com/github/systori/bericht/coverage
