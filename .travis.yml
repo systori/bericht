@@ -7,12 +7,12 @@ python:
 
 env:
   global:
-    - GIT_COMMITTED_AT=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct; fi)
+    - GIT_COMMITTED_AT=$(git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct)
 
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
-  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter before-build; fi
+  - ./cc-test-reporter before-build -d
 
 install:
   - pip install -e .
@@ -21,4 +21,4 @@ install:
 script:
   - coverage run -m unittest bericht.tests.test_css
   - coverage xml
-  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter after-build -d -t coverage.py --exit-code $TRAVIS_TEST_RESULT; fi
+  - ./cc-test-reporter after-build -d -t coverage.py --exit-code $TRAVIS_TEST_RESULT
