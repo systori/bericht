@@ -30,7 +30,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: User Interfaces',
     ],
-    install_requires=['reportlab', 'pdfrw', 'tinycss2'],
+    install_requires=['reportlab', 'pdfrw', 'tinycss2', 'lxml'],
     packages=find_packages(exclude=('bericht.tests',)),
     include_package_data=True
 )
