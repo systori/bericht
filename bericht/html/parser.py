@@ -149,9 +149,16 @@ class HTMLParser:
         columns = None
         for node in self.traverse():
             if isinstance(node, Row):
-                if node.parent.parent.get_columns() is not columns:
-                    columns = node.parent.parent.get_columns()
+                table = node.parent.parent
+                if table.get_columns() is not columns:
+                    columns = table.get_columns()
                     table_columns.append([0]*columns.count)
+                    if table.thead:
+                        for hrow in table.thead.children:
+                            columns.measure(hrow, table_columns[-1])
+                    if table.tfoot:
+                        for frow in table.tfoot.children:
+                            columns.measure(frow, table_columns[-1])
                 columns.measure(node, table_columns[-1])
         return table_columns
 

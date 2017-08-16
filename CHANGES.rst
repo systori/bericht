@@ -1,15 +1,20 @@
+0.0.13
+------
+
+* Bug fix: Column measurement wasn't including header/footer rows.
+
 0.0.12
------
+------
 
 * Replaced <bericht-col> with multi-pass column measurement.
 
 0.0.11
------
+------
 
 * Bug fix: Measuring column width with <bericht-col> includes padding now.
 
 0.0.10
------
+------
 
 * Bug fix: Cell properly renders multiple paragraphs.
 
