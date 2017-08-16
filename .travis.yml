@@ -11,11 +11,12 @@ before_script:
   - ./cc-test-reporter before-build
 
 install:
-  - pip install coverage
   - pip install -e .
+  - pip install coverage
 
 script:
   - coverage run -m unittest bericht.tests.test_css
+  - coverage xml
 
 after_script:
   - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter after-build -t coverage.py --exit-code $TRAVIS_TEST_RESULT; fi
