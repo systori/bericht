@@ -12,17 +12,12 @@ env:
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
-  - ./cc-test-reporter before-build -d
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter before-build -d; fi
 
 install:
   - pip install -e .
   - pip install coverage
 
 script:
-  - coverage run -m unittest bericht.tests.test_css
-  - coverage xml
-  - pwd
-  - cat .coveragerc
-  - head -n 50 coverage.xml
-  - ./cc-test-reporter env
-  - ./cc-test-reporter after-build -d -t coverage.py --exit-code $TRAVIS_TEST_RESULT
+  - make test
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter after-build -d -t coverage.py --exit-code $TRAVIS_TEST_RESULT; fi
