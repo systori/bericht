@@ -1,18 +1,18 @@
 .. image:: https://badge.fury.io/py/bericht.svg
   :target: https://pypi.python.org/pypi/bericht
-     :alt: Package
+  :alt: Package
 
 .. image:: https://travis-ci.org/systori/bericht.svg?branch=master
   :target: https://travis-ci.org/systori/bericht
-     :alt: Build
+  :alt: Build
 
 .. image:: https://codeclimate.com/github/systori/bericht/badges/gpa.svg
   :target: https://codeclimate.com/github/systori/bericht
-     :alt: Code Climate
+  :alt: Code Climate
 
 .. image:: https://codeclimate.com/github/systori/bericht/badges/coverage.svg
   :target: https://codeclimate.com/github/systori/bericht/coverage
-     :alt: Test Coverage
+  :alt: Test Coverage
 
 
 bericht
