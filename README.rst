@@ -1,27 +1,27 @@
+.. image:: https://badge.fury.io/py/bericht.svg
+  :target: https://pypi.python.org/pypi/bericht
+     :alt: Package
+
+.. image:: https://travis-ci.org/systori/bericht.svg?branch=master
+  :target: https://travis-ci.org/systori/bericht
+     :alt: Build
+
+.. image:: https://codeclimate.com/github/systori/bericht/badges/gpa.svg
+  :target: https://codeclimate.com/github/systori/bericht
+     :alt: Code Climate
+
+.. image:: https://codeclimate.com/github/systori/bericht/badges/coverage.svg
+  :target: https://codeclimate.com/github/systori/bericht/coverage
+     :alt: Test Coverage
+
+
 bericht
 =======
 
-Improved tabular report generation with ReportLab.
-
-to test things real quick:
+PDF generator using html/css supporting infinite filesize.
 
 .. code-block:: python
 
-    from reportlab.platypus.doctemplate import SimpleDocTemplate
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet
-
-    from bericht.table import TableBuilder, Span
-
-    rlstyle = getSampleStyleSheet()['BodyText']
-
-    builder = TableBuilder(rlstyle)
-
-    builder.row('this is a test1', 'second cell1', 'ending cell1')
-    builder.row('this is a test', 'second cell', 'ending cell', 'forth cell')
-    builder.row('this is a test', Span.COL, 'forth cell')
-
-    doc = SimpleDocTemplate('test.pdf', pagesize=A4)
-    doc.build([builder.table])
+    from bericht import HTML
 
 you should find a `test.pdf` file in the location where you started python
