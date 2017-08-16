@@ -7,7 +7,7 @@ python:
 
 env:
   global:
-    - GIT_COMMITTED_AT=$(git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct)
+    - GIT_COMMITTED_AT=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct; fi)
 
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
@@ -21,4 +21,8 @@ install:
 script:
   - coverage run -m unittest bericht.tests.test_css
   - coverage xml
+  - pwd
+  - cat .coveragerc
+  - head -n 50 coverage.xml
+  - ./cc-test-reporter env
   - ./cc-test-reporter after-build -d -t coverage.py --exit-code $TRAVIS_TEST_RESULT
