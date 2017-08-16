@@ -19,3 +19,6 @@ install:
 script:
   - make test
   - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter after-build -t coverage.py --exit-code $TRAVIS_TEST_RESULT; fi
+
+notifications:
+  email: false
