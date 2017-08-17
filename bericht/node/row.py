@@ -95,7 +95,11 @@ class Row(Block):
             if cell:
                 cell.split(top_half, bottom_half, content_height)
 
-        return top_half, bottom_half
+        if any(c.children for c in bottom_half.children if c):
+            bottom_half.last_child = self.last_child
+            return top_half, bottom_half
+        top_half.last_child = self.last_child
+        return top_half, None
 
     def draw(self, page, x, y):
         x, y = self.table.draw_header(page, x, y)

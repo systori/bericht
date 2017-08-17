@@ -41,7 +41,7 @@ class Style(namedtuple('_Style', (
 
         'set_attrs',
 
-        'font', 'font_size', 'font_weight', 'font_style', 'text_decoration',
+        'font_family', 'font_size', 'font_weight', 'font_style', 'text_decoration',
 
         'text_align', 'vertical_align',
 
@@ -76,7 +76,7 @@ class Style(namedtuple('_Style', (
 
             set_attrs=tuple(),
 
-            font='Helvetica',
+            font_family='Helvetica',
             font_size=12,
             font_weight='',
             font_style='',
@@ -150,7 +150,7 @@ class Style(namedtuple('_Style', (
 
     def validate(self, **kwargs):
         for key, value in kwargs.items():
-            if key in ('font', 'font_weight', 'font_style', 'text_decoration', 'text_align', 'vertical_align'):
+            if key in ('font_family', 'font_weight', 'font_style', 'text_decoration', 'text_align', 'vertical_align'):
                 assert isinstance(value, str)
             elif key in ('font_size', 'border_spacing'):
                 assert isinstance(value, (int, float))
@@ -179,7 +179,7 @@ class Style(namedtuple('_Style', (
 
     @property
     def font_name(self):
-        return tt2ps(self.font, self.bold, self.italic)
+        return tt2ps(self.font_family, self.bold, self.italic)
 
     @property
     def leading(self):
