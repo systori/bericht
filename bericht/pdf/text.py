@@ -1,5 +1,6 @@
 from .font import getFont
 from reportlab.lib.rl_accel import escapePDF
+from reportlab.pdfbase import pdfmetrics
 
 
 class PDFText:
@@ -37,9 +38,9 @@ class PDFText:
                     if name not in self.page.font:
                         self.page.font[name] = doc.font_references[name]
                     self.write("{} {} Tf {} TL\n".format(
-                        name,
-                        self.font_size, self.font_leading))
-                self.write("(%s) Tj " % escapePDF(t))
+                        name, self.font_size, self.font_leading
+                    ))
+                self.write("({}) Tj ".format(escapePDF(t)))
         elif font._multiByte:
             name = doc.fontMapping.get(font.fontName)
             if name is None:
@@ -50,9 +51,21 @@ class PDFText:
             if name not in self.page.font:
                 self.page.font[name] = doc.font_references[name]
             self.write("/{} {} Tf {} TL\n".format(name, self.font_size, self.font_leading))
-            self.write("(%s) Tj " % font.formatForPdf(txt))
+            self.write("(%s) Tj ".format(font.formatForPdf(txt)))
         else:
-            raise RuntimeError
+            for f, t in pdfmetrics.unicode2T1(txt, [font]+font.substitutionFonts):
+                if f != font:
+                    name = doc.fontMapping.get(f.fontName)
+                    if name is None:
+                        name = doc.fontMapping[font.fontName] = '/F{}'.format(len(doc.fontMapping)+1)
+                        doc.delayedFonts.append(font)
+                    if name not in doc.font_references:
+                        doc.font_references[name] = doc.ref()
+                    if name not in self.page.font:
+                        self.page.font[name] = doc.font_references[name]
+                    self.write("/{} {} Tf {} TL\n".format(name, self.font_size, self.font_leading))
+                    font = f
+                self.write("({}) Tj ".format(escapePDF(t)))
 
         if new_line:
             self.write('T*\n')

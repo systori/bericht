@@ -3,12 +3,7 @@ from tinycss2 import parse_one_rule
 
 from bericht.html import *
 from bericht.html.css import parse_selectors
-
-
-def parse_html(src, css):
-    def generator():
-        yield src
-    return HTMLParser(generator, css)
+from bericht.tests.utils import BaseTestCase
 
 
 class TestSelectorParsing(TestCase):
@@ -46,20 +41,20 @@ class TestSelectorParsing(TestCase):
         self.assert_selector('p+b~foo', 1, 3)
 
 
-class TestMatch(TestCase):
+class TestMatch(BaseTestCase):
 
     def test_matching(self):
-        css = CSS("""
-            #withid, .bolded { font-size: 14pt; }
-            .bolded { font-weight: bold; }
-            p.big { font-size: 16pt; }
-        """)
-        nodes = list(parse_html("""
+        nodes = self.parse("""
             <p>initial</p>
             <p class="bolded">bolded</p>
             <p class="big bolded">big bolded</p>
             <p id="withid">small</p>
-        """, css))
+        """, """
+            #withid, .bolded { font-size: 14pt; }
+            .bolded { font-weight: bold; }
+            p.big { font-size: 16pt; }
+        """)
+        css, nodes = nodes.css, list(nodes)
         for node in nodes:
             css.apply(node)
         initial, bolded, big, withid = nodes

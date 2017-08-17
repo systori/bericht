@@ -1,4 +1,5 @@
 from .text import PDFText
+from bericht.node.style import Style
 from bericht.node.text import stringWidth
 
 __all__ = ('PDFPage',)
@@ -11,7 +12,7 @@ class PDFPage:
     def __init__(self, document, page_number, css, size='letter', layout='portrait'):
         self.parent = None
         self.classes = []
-        self.style = None
+        self.style = Style.default()
         self.position = page_number
         css.apply(self)
 

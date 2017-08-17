@@ -1,7 +1,7 @@
 .PHONY: clean release
 
 test:
-	coverage run -m unittest bericht.tests.test_css
+	coverage run -m unittest bericht.tests.test_css bericht.tests.test_nodes
 	coverage xml
 
 clean:
