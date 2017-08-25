@@ -1,14 +1,10 @@
 from math import floor
 from itertools import chain
-from collections import namedtuple
+from string import whitespace
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
+from . import style
 
-from bericht.node import Block
-from .style import TextAlign
-
-__all__ = (
-    'Paragraph', 'Word', 'Break',
-)
+__all__ = ('Box', 'Block', 'Inline', 'ListItem')
 
 
 class StyledPart:
@@ -45,10 +41,6 @@ class Word:
         return ''.join(p.part for p in self.parts)
 
 
-class Break:
-    pass
-
-
 class Line:
 
     __slots__ = ('words', 'width')
@@ -68,16 +60,173 @@ class Line:
         return iter(self.words)
 
 
-class Paragraph(Block):
+class Behavior:
+    __slots__ = ('box',)
 
-    __slots__ = ('words',)
+    def __init__(self, box):
+        self.box = box
 
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.words = []
+    def add(self, child):
+        if self.box.buffered:
+            self.box.children.append(child)
+
+    def insert(self, i, child):
+        if self.box.buffered:
+            self.box.children.insert(i, child)
+
+
+class Block(Behavior):
+    __slots__ = ()
+
+
+class Inline(Behavior):
+    __slots__ = ()
+
+
+class ListItem(Behavior):
+    __slots__ = ()
+
+
+class Box:
+
+    __slots__ = (
+        'parent', 'tag', 'attrs', 'id', 'classes', 'style', 'behavior', 'buffered',
+        'position', 'last', 'position_of_type', 'last_of_type', 'width', 'height',
+        'children', 'lines', 'before', 'after'
+    )
+
+    def __init__(self, parent, tag, attrs):
+        self.parent = parent
+        self.tag = tag
+        self.attrs = attrs
+        self.id = attrs.get('id', None)
+        self.classes = attrs.get('class', [])
+
+        if parent is None:
+            self.style = style.default
+        else:
+            self.style = parent.style.inherit()
+
+        self.behavior = None
+
+        self.position = 1
+        self.position_of_type = 1
+        self.last = False
+
+        self.width = None
+        self.height = None
+
+        self.children = []
+        self.lines = []
+
+        self.before = None
+        self.after = None
+
+        self.buffered = True
 
     def __str__(self):
-        return ' '.join(str(word) for word in self.words)
+        return '{}: <{}>'.format(self.behavior.__class__.__name__, self.tag)
+
+    @property
+    def html(self):
+        yield
+
+    @property
+    def text(self):
+        for child in self.children:
+            if isinstance(child, str):
+                yield child
+            else:
+                yield from child.text
+
+    @property
+    def first(self):
+        return self.position == 1
+
+    @property
+    def first_of_type(self):
+        return self.position_of_type == 1
+
+    def add(self, child):
+        self.behavior.add(child)
+
+    def insert(self, i, child):
+        self.behavior.insert(i, child)
+
+    def draw_border_and_background(self, page, x, y):
+        page.save_state()
+        page.translate(x, y)
+        s = self.style
+        top_left, top_right, bottom_left, bottom_right = self.border_box
+        if s.background_color:
+            page.fill_color(*s.background_color)
+            page.rectangle(0, 0, self.width, self.height)
+        if s.border_top_width > 0:
+            page.line_width(s.border_top_width)
+            page.stroke_color(*s.border_top_color)
+            page.line(*top_left, *top_right)
+        if s.border_right_width > 0:
+            page.line_width(s.border_right_width)
+            page.stroke_color(*s.border_right_color)
+            page.line(*top_right, *bottom_right)
+        if s.border_bottom_width > 0:
+            page.line_width(s.border_bottom_width)
+            page.stroke_color(*s.border_bottom_color)
+            page.line(*bottom_left, *bottom_right)
+        if s.border_left_width > 0:
+            page.line_width(s.border_left_width)
+            page.stroke_color(*s.border_left_color)
+            page.line(*top_left, *bottom_left)
+        page.restore_state()
+
+    @property
+    def empty(self):
+        return not self.children
+
+    @property
+    def min_content_width(self):
+        width = 0
+        for block in self.children:
+            width = max(width, block.min_content_width)
+        return width
+
+    @property
+    def frame_top(self):
+        s = self.style
+        return s.margin_top + s.border_top_width + s.padding_top
+
+    @property
+    def frame_right(self):
+        s = self.style
+        return s.padding_right + s.border_right_width + s.margin_right
+
+    @property
+    def frame_bottom(self):
+        s = self.style
+        return s.margin_bottom + s.border_bottom_width + s.padding_bottom
+
+    @property
+    def frame_left(self):
+        s = self.style
+        return s.margin_left + s.border_left_width + s.padding_left
+
+    @property
+    def frame_width(self):
+        return self.frame_left + self.frame_right
+
+    @property
+    def frame_height(self):
+        return self.frame_top + self.frame_bottom
+
+    @property
+    def border_box(self):
+        s = self.style
+        return (
+            (s.margin_left, self.height-s.margin_top),  # top left
+            (self.width-s.margin_right, self.height-s.margin_top),  # top right
+            (s.margin_left, s.margin_bottom),  # bottom left
+            (self.width-s.margin_right, s.margin_bottom),  # bottom right
+        )
 
     @property
     def min_content_width(self):

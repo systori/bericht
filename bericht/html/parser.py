@@ -1,37 +1,69 @@
-from string import whitespace
+from itertools import chain
 from lxml import etree
-from bericht.node import Style
-from bericht.node import Paragraph, Word, Break
-from bericht.node import Table, Row, Cell
-from bericht.node import ColumnGroup, Column, RowGroup
+from .box import *
+from .table import *
 
 __all__ = ('HTMLParser',)
 
 
-def pumper(source, pump, stream):
+TAG_TO_DISPLAY = {
+    'table': 'table',
+    'colgroup': 'table-column-group',
+    'col': 'table-column',
+    'thead': 'table-header-group',
+    'tfoot': 'table-footer-group',
+    'tbody': 'table-row-group',
+    'tr': 'table-row',
+    'td': 'table-cell',
+    'th': 'table-cell',
+
+    'body': 'block',
+    'div': 'block',
+    'p': 'block',
+    'br': 'block',
+    'ul': 'block',
+    'ol': 'block',
+
+    'li': 'list-item',
+
+    'span': 'inline',
+    'a': 'inline',
+    'b': 'inline',
+    'strong': 'inline',
+    'i': 'inline',
+    'u': 'inline',
+}
+
+
+def pumper(html_generator):
+    """
+    Pulls HTML from source generator,
+    feeds it to the parser and yields
+    DOM elements.
+    """
+    source = html_generator()
+    parser = etree.HTMLPullParser(
+        events=('start', 'end',),
+        remove_comments=True
+    )
     while True:
-        for chunk in stream:
-            yield chunk
+        for element in parser.read_events():
+            yield element
         try:
-            pump(next(source))
+            parser.feed(next(source))
         except StopIteration:
             break
 
 
-TAG_MAP = {
-    'p': Paragraph,
-    'table': Table,
-    'colgroup': ColumnGroup,
-    'col': Column,
-    'thead': RowGroup,
-    'tbody': RowGroup,
-    'tfoot': RowGroup,
-    'tr': Row,
-    'td': Cell,
-}
-
-BLOCK_TAGS = tuple(TAG_MAP.keys())
-STYLE_TAGS = 'b', 'strong', 'i', 'u', 'span', 'br'
+def iter_previous_current_last(child_iter):
+    current_child = next(child_iter, None)
+    if current_child:
+        previous_child = None
+        for next_child in child_iter:
+            yield previous_child, current_child, False
+            previous_child = current_child
+            current_child = next_child
+        yield previous_child, current_child, True
 
 
 class HTMLParser:
@@ -40,116 +72,140 @@ class HTMLParser:
         self.html_generator = html_generator
         self.css = css
         self.table_columns = None
+        self.stream = None
 
-    def traverse(self, parent=None):
-        for event, element in self.events:
+    def parse(self, parent, prepend=None, root_rows=False):
+        """
+        https://www.w3.org/TR/html5/syntax.html
+        See: 8.2.5 Tree construction
+        """
+
+        if prepend is not None:
+            stream = chain([('start', prepend)], self.stream)
+        else:
+            stream = self.stream
+
+        for event, element in stream:
+
             tag = element.tag
-
-            assert tag in BLOCK_TAGS
 
             if event == 'start':
 
-                if tag == 'tr' and isinstance(parent, Table):
-                    parent = parent.get_tbody()
+                if isinstance(parent.behavior, Table):
 
-                node = TAG_MAP[tag](
-                    tag, parent,
-                    element.attrib.get('id', None),
-                    element.attrib.get('class', None),
-                    self.css,
-                    1
-                )
+                    # these are not direct descendants of <table>, add missing parent
 
-                if isinstance(node, Table):
-                    if parent is None:
-                        row_iter = self.traverse(node)
-                        current_row = next(row_iter)
-                        positions = {}
-                        for next_row in row_iter:
-                            positions.setdefault(current_row.parent.tag, -1)
-                            positions[current_row.parent.tag] += 1
-                            next_row.position = positions[current_row.parent.tag]
-                            if current_row.parent.tag == 'tbody':
-                                yield current_row
-                            current_row = next_row
-                        for cell in current_row.children:
-                            if cell.children:
-                                cell.children[-1].last_child = True
-                        if current_row.children:
-                            current_row.children[-1].last_child = True
-                        current_row.last_child = True
-                        yield current_row
-                    else:
-                        node.buffered = True
-                        for _ in self.traverse(node):
-                            pass
-                        yield node
+                    if tag in ('td', 'th', 'tr'):
+                        tbody = parent.behavior.tbody or self.make_child(parent, 'tbody', {})
+                        yield from self.parse(tbody, element, root_rows=root_rows)
+                        return
 
-                elif isinstance(node, Paragraph):
-                    self.fast_forward_to_end(element)
-                    node.style = Style.default()
-                    extract_words(node, element)
-                    yield node
+                    elif tag == 'col':
+                        columns = parent.behavior.columns or self.make_child(parent, 'colgroup', {})
+                        self.parse(columns, element)
+                        return
 
-                elif isinstance(node, Column):
-                    node.width_spec = element.attrib.get('width', '')
-                    yield node
+                elif isinstance(parent.behavior, TableRowGroup):
+
+                    # these are not direct descendants of <tbody>, add missing parent
+
+                    if tag in ('td', 'th'):
+                        row = self.make_child(parent, 'tr', {})
+                        self.parse(row, element)
+                        if root_rows:
+                            yield None, row
+                        return
+
+                node = self.make_child(parent, tag, element.attrib)
+
+                if parent.tag == 'body' and isinstance(node.behavior, Table):
+                    yield from self.parse(node, root_rows=True)
 
                 else:
 
-                    if isinstance(node, Cell):
-                        node.colspan = int(element.attrib.get('colspan', 1))
+                    last_child = None
+                    position = 0
+                    position_of_type = {}
 
-                    elif isinstance(node, ColumnGroup):
-                        span = element.attrib.get('span')
-                        if span:
-                            node.span = int(span)
-                        if self.table_columns:
-                            node.measurements = self.table_columns.pop(0)
+                    for previous, (child_element, child_node), last in iter_previous_current_last(self.parse(node)):
+                        if previous is not None:
+                            if previous[0].tail:
+                                # insert text between previous node and current node
+                                node.insert(len(node.children)-2, previous[0].tail)
+                        position_of_type.setdefault(child_node.tag, 0)
+                        child_node.position = position = position + 1
+                        child_node.position_of_type = position_of_type[child_node.tag] = position_of_type[child_node.tag] + 1
+                        child_node.last = last
+                        last_child = child_element
 
-                    for _ in self.traverse(node):
-                        pass
+                    if element.text:
+                        node.insert(0, element.text)
 
-                    yield node
+                    if last_child is not None and last_child.tail:
+                        node.add(last_child.tail)
+
+                    yield element, node
 
             else:
+                break
 
-                if tag == 'col':
-                    continue
+    def make_child(self, parent, tag, attrib):
+        node = Box(parent, tag, attrib)
+        self.css.apply(node)
+        if node.style.display is None:
+            display = TAG_TO_DISPLAY.get(tag, 'block')
+            node.style = node.style.set(display=display)
+        node.behavior = self.get_behavior(parent.behavior if parent else None, node)
+        if parent:
+            if parent.buffered:
+                parent.add(node)
+            elif tag == 'table':
+                node.buffered = False
+        return node
 
-                else:
-                    break
+    @staticmethod
+    def get_behavior(parent, node):
 
-    def fast_forward_to_end(self, end):
-        """ Fast forwarding (parsing) to end tag loads
-            the element and its contents into memory.
-            Sometimes it's necessary to have the entire
-            element tree loaded to correctly process
-            the contents (eg, <p></p> tags).
-        """
-        for event, element in self.events:
-            if event == 'end' and element == end:
-                return
-        raise RuntimeError('End element not reached.')
+        display = node.style.display
 
-    def reset_parser(self):
-        parser = etree.HTMLPullParser(
-            events=('start', 'end',),
-            tag=BLOCK_TAGS + STYLE_TAGS,
-            remove_comments=True
-        )
-        self.events = pumper(
-            self.html_generator(),
-            parser.feed,
-            parser.read_events()
-        )
+        if display == 'block':
+            return Block(node)
+
+        elif display == 'inline':
+            return Inline(node)
+
+        elif display == 'table':
+            return Table(node)
+
+        elif parent:
+
+            if isinstance(parent, Table):
+                if display == 'table-column-group':
+                    return TableColumnGroup(node)
+
+                elif display in ('table-header-group', 'table-row-group', 'table-footer-group'):
+                    return TableRowGroup(node)
+
+            elif display == 'table-column' and isinstance(parent, TableColumnGroup):
+                return TableColumn(node)
+
+            elif display == 'table-row' and isinstance(parent, TableRowGroup):
+                return TableRow(node)
+
+            elif display == 'table-cell' and isinstance(parent, TableRow):
+                return TableCell(node)
+
+            elif display == 'list-item' and isinstance(parent, Block):
+                return ListItem(node)
+
+        return Block(node)
 
     def measure_column_widths(self):
         table_columns = []
         columns = None
-        for node in self.traverse():
-            if isinstance(node, Row):
-                table = node.parent.parent
+        for box in self.boxes():
+            if isinstance(box.behavior, TableRow):
+                table = box.parent.parent
                 if table.get_columns() is not columns:
                     columns = table.get_columns()
                     table_columns.append([0]*columns.count)
@@ -162,56 +218,15 @@ class HTMLParser:
                 columns.measure(node, table_columns[-1])
         return table_columns
 
+    def boxes(self):
+        self.stream = pumper(self.html_generator)
+        next(self.stream)  # html
+        _, body_element = next(self.stream)  # body
+        node = self.make_child(None, body_element.tag, body_element.attrib)
+        node.buffered = False
+        return map(lambda n: n[1], self.parse(node))
+
     def __iter__(self):
-        if self.table_columns is None:
-            self.reset_parser()
-            self.table_columns = self.measure_column_widths()
-        self.reset_parser()
-        yield from self.traverse()
-
-
-def extract_words(p, root):
-
-    words = p.words
-    styles = [p.style]
-    word_open = False
-
-    def data(data):
-        nonlocal word_open
-        if data[0] in whitespace or (words and words[-1] is Break):
-            word_open = False
-        parts = data.split()
-        if not parts:
-            return
-        word_iter = iter(parts)
-        style = styles[-1]
-        if word_open:
-            words[-1].add(p, style, next(word_iter))
-        words.extend(Word(p, style, word) for word in word_iter)
-        word_open = data[-1] not in whitespace
-
-    if root.text:
-        data(root.text)
-
-    context = etree.iterwalk(
-        root, events=('start', 'end'),
-        tag=STYLE_TAGS
-    )
-    for event, element in context:
-        tag = element.tag
-        if event == 'start':
-            if tag in ('b', 'strong'):
-                styles.append(styles[-1].set(font_weight='bold'))
-            elif tag == 'i':
-                styles.append(styles[-1].set(font_style='italic'))
-            elif tag == 'u':
-                styles.append(styles[-1].set(text_decoration='underline'))
-            if element.text:
-                data(element.text)
-        else:  # event == 'end':
-            if tag == 'br':
-                words.append(Break)
-            else:
-                styles.pop()
-            if element.tail:
-                data(element.tail)
+        #if self.table_columns is None:
+        #    self.table_columns = self.measure_column_widths()
+        yield from self.boxes()

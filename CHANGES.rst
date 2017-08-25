@@ -1,3 +1,8 @@
+0.0.14
+------
+
+* Bug fix: Splitting now row ignores blank half.
+
 0.0.13
 ------
 

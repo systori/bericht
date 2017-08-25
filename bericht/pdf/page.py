@@ -1,6 +1,6 @@
+from bericht.html.box import stringWidth
+from bericht.html.style import Style
 from .text import PDFText
-from bericht.node.style import Style
-from bericht.node.text import stringWidth
 
 __all__ = ('PDFPage',)
 

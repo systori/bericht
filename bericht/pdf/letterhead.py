@@ -9,21 +9,43 @@ class XObject:
     def __init__(self, doc, xobj, name=None):
         self.doc = doc
         self.name = name
-        self.form = form = doc.ref({
-            'Type': 'XObject',
-            'Subtype': 'Form',
-            'FormType': 1,
-            'BBox': xobj.BBox,
-            'Resources': {}
-        }, name=name)
+        self.form = form = doc.ref({'Type': 'XObject', }, name=name)
+
         if xobj.Filter:
-            form.meta['Filter'] = 'FlateDecode'
-        if xobj.Resources.Font:
-            form.meta['Resources']['Font'] = dict(self.copy_fonts(xobj.Resources.Font))
-        if xobj.Resources.ExtGState:
-            form.meta['Resources']['ExtGState'] = xobj.Resources.ExtGState
-        if xobj.Resources.XObject:
-            form.meta['Resources']['XObject'] = dict(self.copy_xobjects(xobj.Resources.XObject))
+            form.meta['Filter'] = xobj.Filter
+
+        if xobj.Subtype == '/Form' and xobj.Resources:
+            form.meta.update({
+                'Subtype': 'Form',
+                'FormType': 1,
+                'BBox': xobj.BBox,
+                'Resources': {}
+            })
+            if xobj.Resources.Font:
+                form.meta['Resources']['Font'] = dict(self.copy_fonts(xobj.Resources.Font))
+            if xobj.Resources.ExtGState:
+                form.meta['Resources']['ExtGState'] = xobj.Resources.ExtGState
+            if xobj.Resources.ProcSet:
+                form.meta['Resources']['ProcSet'] = xobj.Resources.ProcSet
+            if xobj.Resources.XObject:
+                form.meta['Resources']['XObject'] = dict(self.copy_xobjects(xobj.Resources.XObject))
+
+        elif xobj.Subtype == '/Image':
+            form.meta.update({
+                'Subtype': 'Image',
+                'BitsPerComponent': xobj.BitsPerComponent,
+                'Interpolate': xobj.Interpolate,
+                'Intent': xobj.Intent,
+                'Width': xobj.Width,
+                'Height': xobj.Height,
+                'ColorSpace': [
+                    xobj.ColorSpace[0],
+                    self.copy_shallow_object(xobj.ColorSpace[1])
+                ],
+            })
+        else:
+            raise NotImplementedError
+
         form.write(xobj.stream.encode('latin'))
 
     def copy_fonts(self, fonts):
@@ -79,6 +101,11 @@ class XObject:
         for xobj_id, xobj_ref in xobjs.iteritems():
             xobj = XObject(self.doc, xobj_ref)
             yield xobj_id, xobj.form
+
+    def copy_shallow_object(self, obj):
+        ff = self.doc.ref({key: value for key, value in obj.iteritems()})
+        ff.write(obj.stream.encode('latin'))
+        return ff
 
 
 class PDFLetterhead:

@@ -2,7 +2,8 @@ from tinycss2 import (
     parse_stylesheet, parse_declaration_list, parse_one_component_value,
     ast, nth, color3
 )
-from bericht.node.style import Style
+
+from bericht.html.style import Style
 
 __all__ = ('CSS',)
 
