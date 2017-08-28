@@ -20,7 +20,6 @@ TAG_TO_DISPLAY = {
     'body': 'block',
     'div': 'block',
     'p': 'block',
-    'br': 'block',
     'ul': 'block',
     'ol': 'block',
 
@@ -32,6 +31,7 @@ TAG_TO_DISPLAY = {
     'strong': 'inline',
     'i': 'inline',
     'u': 'inline',
+    'br': 'inline',
 }
 
 
@@ -43,7 +43,7 @@ def pumper(html_generator):
     """
     source = html_generator()
     parser = etree.HTMLPullParser(
-        events=('start', 'end',),
+        events=('start', 'end'),
         remove_comments=True
     )
     while True:
@@ -52,6 +52,10 @@ def pumper(html_generator):
         try:
             parser.feed(next(source))
         except StopIteration:
+            # forces close of any unclosed tags
+            parser.feed('</html>')
+            for element in parser.read_events():
+                yield element
             break
 
 
@@ -74,56 +78,46 @@ class HTMLParser:
         self.table_columns = None
         self.stream = None
 
-    def parse(self, parent, prepend=None, root_rows=False):
+    def parse(self, parent):
         """
         https://www.w3.org/TR/html5/syntax.html
         See: 8.2.5 Tree construction
         """
 
-        if prepend is not None:
-            stream = chain([('start', prepend)], self.stream)
-        else:
-            stream = self.stream
+        last_child = None
 
-        for event, element in stream:
+        for event, element in self.stream:
 
             tag = element.tag
 
             if event == 'start':
+
+                last_child = element
 
                 if isinstance(parent.behavior, Table):
 
                     # these are not direct descendants of <table>, add missing parent
 
                     if tag in ('td', 'th', 'tr'):
-                        tbody = parent.behavior.tbody or self.make_child(parent, 'tbody', {})
-                        yield from self.parse(tbody, element, root_rows=root_rows)
-                        return
+                        parent = parent.behavior.tbody or self.make_child(parent, 'tbody', {})
 
                     elif tag == 'col':
-                        columns = parent.behavior.columns or self.make_child(parent, 'colgroup', {})
-                        self.parse(columns, element)
-                        return
+                        parent = parent.behavior.columns or self.make_child(parent, 'colgroup', {})
 
                 elif isinstance(parent.behavior, TableRowGroup):
 
                     # these are not direct descendants of <tbody>, add missing parent
 
                     if tag in ('td', 'th'):
-                        row = self.make_child(parent, 'tr', {})
-                        self.parse(row, element)
-                        if root_rows:
-                            yield None, row
-                        return
+                        parent = self.make_child(parent, 'tr', {})
 
                 node = self.make_child(parent, tag, element.attrib)
 
-                if parent.tag == 'body' and isinstance(node.behavior, Table):
-                    yield from self.parse(node, root_rows=True)
+                if isinstance(node.behavior, Table) and parent.tag == 'body':
+                    yield from self.parse(node)
 
                 else:
 
-                    last_child = None
                     position = 0
                     position_of_type = {}
 
@@ -136,17 +130,23 @@ class HTMLParser:
                         child_node.position = position = position + 1
                         child_node.position_of_type = position_of_type[child_node.tag] = position_of_type[child_node.tag] + 1
                         child_node.last = last
-                        last_child = child_element
+                        if isinstance(child_node.behavior, TableRow) and\
+                                node.style.display == 'table-row-group' and\
+                                parent.parent.parent.tag == 'body':
+                            yield child_element, child_node
 
                     if element.text:
                         node.insert(0, element.text)
 
-                    if last_child is not None and last_child.tail:
-                        node.add(last_child.tail)
-
+                if not (parent.tag == 'body' and isinstance(node.behavior, Table)) and \
+                        not isinstance(node.behavior, TableRowGroup):
                     yield element, node
 
             else:
+
+                if last_child is not None and last_child.tail:
+                    parent.add(last_child.tail)
+
                 break
 
     def make_child(self, parent, tag, attrib):
@@ -224,7 +224,7 @@ class HTMLParser:
         _, body_element = next(self.stream)  # body
         node = self.make_child(None, body_element.tag, body_element.attrib)
         node.buffered = False
-        return map(lambda n: n[1], self.parse(node))
+        return map(lambda r: r[1], self.parse(node))
 
     def __iter__(self):
         #if self.table_columns is None:

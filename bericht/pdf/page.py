@@ -1,5 +1,5 @@
 from bericht.html.box import stringWidth
-from bericht.html.style import Style
+from bericht.html.style import default as default_style
 from .text import PDFText
 
 __all__ = ('PDFPage',)
@@ -11,10 +11,15 @@ class PDFPage:
 
     def __init__(self, document, page_number, css, size='letter', layout='portrait'):
         self.parent = None
-        self.classes = []
-        self.style = Style.default()
         self.position = page_number
+        self.classes = []
+        self.style = default_style.set(**{
+            'margin_'+side: value for side, value in DEFAULT_MARGINS.items()
+        })
         css.apply(self)
+        self.margins = {
+            side: getattr(self.style, 'margin_'+side) for side in DEFAULT_MARGINS
+        }
 
         self.document = document
         self.size = size
@@ -24,16 +29,9 @@ class PDFPage:
         self.width = dimensions[0 if self.layout is 'portrait' else 1]
         self.height = dimensions[1 if self.layout is 'portrait' else 0]
 
-        margins = DEFAULT_MARGINS.copy()
-        if self.style:
-            for side in ('top', 'right', 'bottom', 'left'):
-                attr = 'margin_'+side
-                if attr in self.style.set_attrs:
-                    margins[side] = getattr(self.style, attr)
-        self.x = margins['left']
-        self.y = self.height - margins['top']
-        self.available_width = self.width - self.x - margins['right']
-        self.margins = margins
+        self.x = self.margins['left']
+        self.y = self.height - self.margins['top']
+        self.available_width = self.width - self.x - self.margins['right']
 
         self.content = document.ref()
 
@@ -42,7 +40,7 @@ class PDFPage:
             'ProcSet': ['PDF', 'Text', 'ImageB', 'ImageC', 'ImageI'],
         })
 
-        if self.style and 'letterhead_page' in self.style.set_attrs and self.document.letterhead:
+        if self.document.letterhead and self.style.letterhead_page:
             letterhead_page = self.document.letterhead[int(self.style.letterhead_page)-1]
             self.resources.meta.update({
                 'XObject': {letterhead_page.name: letterhead_page}

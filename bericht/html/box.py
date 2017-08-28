@@ -128,11 +128,7 @@ class Box:
         return '{}: <{}>'.format(self.behavior.__class__.__name__, self.tag)
 
     @property
-    def html(self):
-        yield
-
-    @property
-    def text(self):
+    def descendants(self):
         for child in self.children:
             if isinstance(child, str):
                 yield child
@@ -235,36 +231,44 @@ class Box:
     def wrap(self, page, available_width):
         self.width = available_width
         self.height = 0
-        line = Line()
-        lines = self.children = [line]
-        if not self.words:
+
+        if not self.children:
             return 0, 0
 
-        self.css.apply(self)
-        if self.parent:
-            self.style = self.style.inherit(self.parent.style)
+        line = None
 
         max_width = 0
         space_width = stringWidth(' ', self.style.font_name, self.style.font_size)
-        for word in self.words:
+        for child in self.children:
 
-            if word is Break:
-                line = Line([Break])
-                lines.append(line)
+            if isinstance(child, str):
+                for part in word.parts:
+                    part.style = part.style.inherit(self.style)
+
+                word_width = word.width
+                if line.width+word_width > available_width:
+                    if line:
+                        line = Line()
+                        lines.append(line)
+
+                line.width += word_width + space_width
+                line.add(word)
+                max_width = max(line.width, max_width)
+
+            elif child.tag == 'br':
+                if not line:
+                    line = Line()
+                line.add(child)
+                self.lines.append(line)
+                line = None
                 continue
 
-            for part in word.parts:
-                part.style = part.style.inherit(self.style)
-
-            word_width = word.width
-            if line.width+word_width > available_width:
+            else:
                 if line:
-                    line = Line()
-                    lines.append(line)
-
-            line.width += word_width + space_width
-            line.add(word)
-            max_width = max(line.width, max_width)
+                    self.lines.append(line)
+                    line = None
+                self.lines.append(child)
+                continue
 
         self.height = self.frame_height + len(lines) * self.style.leading
         return max_width, self.height
