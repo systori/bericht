@@ -22,17 +22,18 @@ class Table(Behavior):
 
     def __init__(self, box):
         super().__init__(box)
-        box.children = [None, None, None, None]
+        columns = Box(self.box, 'colgroup', {})
+        box.children = [columns, None, None, None]
+        columns.style = columns.style.set(display='table-column-group')
+        columns.behavior = TableColumnGroup(columns)
+
+    @property
+    def text_allowed(self):
+        return False
 
     @property
     def columns(self):
-        i = TABLE_CHILDREN['table-column-group']
-        columns = self.box.children[i]
-        if columns is None:
-            self.box.children[i] = columns = Box(self.box, 'colgroup', {})
-            columns.style.display = 'table-column-group'
-            columns.behavior = TableColumnGroup(columns)
-        return columns
+        return self.box.children[TABLE_CHILDREN['table-column-group']]
 
     @property
     def thead(self):
@@ -48,18 +49,21 @@ class Table(Behavior):
 
     def add(self, child):
         i = TABLE_CHILDREN[child.style.display]
-        assert self.box.children[i] is None
-        self.box.children[i] = child
+        if i != TABLE_CHILDREN['table-column-group']:
+            assert self.box.children[i] is None
         if i == TABLE_CHILDREN['table-row-group']:
-            child.buffered = self.box.buffered
+            child.buffered = self.box.parent.tag != 'body'
         else:
-            child.style.visibility = False
+            child.style = child.style.set(visibility=False)
+            if i == TABLE_CHILDREN['table-column-group']:
+                child.behavior.measurements = self.columns.behavior.measurements
+        self.box.children[i] = child
 
     def get_column_widths(self, available_width):
-        return self.columns.get_widths(available_width)
+        return self.columns.behavior.get_widths(available_width)
 
     def reserve_header_height(self, page, available_width):
-        if self.thead and self.thead.drawn_on != page.page_number:
+        if self.thead and self.thead.behavior.drawn_on != page.page_number:
             return self.thead.wrap(page, available_width)
         return 0
 
@@ -78,7 +82,7 @@ class Table(Behavior):
         return self.width, self.height
 
     def draw_header(self, page, x, y):
-        if self.thead and self.thead.drawn_on != page.page_number:
+        if self.thead and self.thead.behavior.drawn_on != page.page_number:
             return self.thead.draw(page, x, y)
         return x, y
 
@@ -193,8 +197,15 @@ class TableColumnGroup(Behavior):
 
     def __init__(self, box):
         super().__init__(box)
-        self.span = box.attrs.get('span', '')
+        self.span = box.attrs.get('span', None)
+        if self.span is not None:
+            self.span = int(self.span)
         self.widths = None
+        self.measurements = []
+
+    @property
+    def text_allowed(self):
+        return False
 
     @property
     def count(self):
@@ -218,32 +229,31 @@ class TableColumnGroup(Behavior):
 
         units = 0
         for c in self.box.children:
-            if c.is_proportional:
-                units += c.proportion
+            if c.behavior.is_proportional:
+                units += c.behavior.proportion
 
         unit_size = (available_width - fixed) / units
         for i in range(len(self.box.children)):
             c = self.box.children[i]
-            if c.is_proportional:
-                widths[i] = c.proportion * unit_size
+            if c.behavior.is_proportional:
+                widths[i] = c.behavior.proportion * unit_size
 
         self.widths = widths
 
     def measure(self, row, maximums):
-        if not self.box.children: return
+        if not self.box.children:
+            return
         cols = iter(self.box.children)
         icol = 0
         for cell in row.children:
-            if not cell or cell.colspan == 1:
+            if not cell or cell.behavior.colspan == 1:
                 col = next(cols)
                 if cell and cell.children:
-                    assert isinstance(cell.children[0], Paragraph)
-                    cell.css.apply(cell)
-                    maximums[icol] = max(maximums[icol], col.measure(cell.children[0]) + cell.frame_width)
+                    maximums[icol] = max(maximums[icol], col.behavior.measure(cell) + cell.frame_width)
                 icol += 1
             else:
                 # multi-column spans aren't measured
-                for _ in range(cell.colspan):
+                for _ in range(cell.behavior.colspan):
                     next(cols)
                     icol += 1
 
@@ -254,6 +264,10 @@ class TableColumn(Behavior):
     def __init__(self, box):
         super().__init__(box)
         self.width = box.attrs.get('width', '')
+
+    @property
+    def text_allowed(self):
+        return False
 
     @property
     def is_fixed(self):
@@ -296,29 +310,34 @@ class TableRowGroup(Behavior):
         super().__init__(box)
         self.drawn_on = None
 
+    @property
+    def text_allowed(self):
+        return False
+
     def add(self, child):
         if self.box.parent.buffered:
             self.box.children.append(child)
 
     def wrap(self, page, available_width):
         header_height = 0
-        self.css.apply(self)
-        if self.parent:
-            self.style = self.style.inherit(self.parent.style)
-        for row in self.children:
-            header_height += row._wrap(page, available_width)[1]
+        for row in self.box.children:
+            header_height += row.behavior._wrap(page, available_width)[1]
         return header_height
 
     def draw(self, page, x, y):
         self.drawn_on = page.page_number
-        for row in self.children:
-            x, y = row._draw(page, x, y)
-        self.position += 1
+        for row in self.box.children:
+            x, y = row.behavior._draw(page, x, y)
+        self.box.position += 1
         return x, y
 
 
 class TableRow(Behavior):
     __slots__ = ()
+
+    @property
+    def text_allowed(self):
+        return False
 
     @property
     def table_row_frame_top(self):
@@ -340,49 +359,48 @@ class TableRow(Behavior):
     def table_row_frame_left(self):
         return 0
 
-    def table_row_wrap(self, page, available_width):
-        table = self.parent.parent
+    def wrap(self, page, available_width):
+        table = self.box.parent.parent.behavior
         return available_width, (
             table.reserve_header_height(page, available_width) +
-            self._table_row_wrap(page, available_width)[1] +
+            self._wrap(page, available_width)[1] +
             table.reserve_footer_height(page, available_width)
         )
 
-    def _table_row_wrap(self, page, available_width):
-        table = self.parent.parent
+    def _wrap(self, page, available_width):
+        table = self.box.parent.parent.behavior
+        children = self.box.children
         column_widths = table.get_column_widths(available_width)
-        self.width = available_width
-        cell_widths = self.cell_widths = []
+        self.box.width = available_width
+        cell_widths = self.box.lines = []
 
-        self.css.apply(self)
-        if self.parent:
-            self.style = self.style.inherit(self.parent.style)
-
-        if not self.children:
+        if not children:
             return 0, 0
 
         col_width = iter(column_widths)
-        for cell in self.children:
-            if not cell or cell.colspan == 1:
+        for cell in children:
+            if not cell or cell.behavior.colspan == 1:
                 cell_widths.append(next(col_width))
             else:
                 cell_widths.append(0)
-                for col in range(cell.colspan):
-                    cell_widths[-1] += next(col_width) + self.cell_spacing / 2.0
+                for col in range(cell.behavior.colspan):
+                    # TODO: re-implement cell_spacing
+                    cell_widths[-1] += next(col_width)  # + self.box.cell_spacing / 2.0
 
         max_height = 0
-        for cell, cell_width in zip(self.children, cell_widths):
+        for cell, cell_width in zip(children, cell_widths):
             if cell is not None:
-                cell.collapsed = self.collapsed
+                # TODO: re-implement collapsed
+                #cell.collapsed = self.collapsed
                 _, height = cell.wrap(page, cell_width)
                 max_height = max(max_height, height)
 
-        for cell in self.children:
+        for cell in children:
             if not cell: continue
             cell.height = max_height
 
-        self.height = self.frame_height + max_height
-        return self.width, self.height
+        self.box.height = self.box.frame_height + max_height
+        return self.box.width, self.box.height
 
     def table_row_split(self, top_parent, bottom_parent, available_height):
         if available_height >= self.height:
@@ -402,38 +420,51 @@ class TableRow(Behavior):
         top_half.last_child = self.last_child
         return top_half, None
 
-    def table_row_draw(self, page, x, y):
-        table = self.parent.parent
-        x, y = table.draw_header(page, x, y)
+    def draw(self, page, x, y):
+        table = self.box.parent.parent
+        x, y = table.behavior.draw_header(page, x, y)
         x, y = self._draw(page, x, y)
         return x, y
 
-    def _table_row_draw(self, page, x, y):
+    def _draw(self, page, x, y):
         original_x, original_y = x, y
-        x += self.cell_spacing / 2.0
+        # TODO: re-implement cell_spacing
+        #x += self.cell_spacing / 2.0
         #y -= self.height
-        y -= self.frame_top
-        last = len(self.cell_widths)-1
-        for i, (cell, width) in enumerate(zip(self.children, self.cell_widths)):
+        y -= self.box.frame_top
+        children = self.box.children
+        cell_widths = self.box.lines
+        last = len(cell_widths)-1
+        for i, (cell, width) in enumerate(zip(children, cell_widths)):
             if cell:
-                if False and self.collapsed:
-                    self.draw_collapsed_cell_border(
-                        None if i == 0 else self.children[i-1],
-                        cell,
-                        None if i == last else self.children[i+1],
-                    )
-                else:
-                    cell.draw_border_and_background(page, x, original_y - self.height)
+                #if False and self.collapsed:
+                #    self.draw_collapsed_cell_border(
+                #        None if i == 0 else self.children[i-1],
+                #        cell,
+                #        None if i == last else self.children[i+1],
+                #    )
+                #else:
+                cell.draw_border_and_background(page, x, original_y - self.box.height)
                 cell.draw(page, x, y)
-            x += width + self.cell_spacing / 2.0
-        return original_x, original_y - self.height
+            # TODO: re-implement cell_spacing
+            x += width #+ self.cell_spacing / 2.0
+        return original_x, original_y - self.box.height
 
     def draw_collapsed_cell_border(self, before, cell, after):
         pass
 
 
 class TableCell(Behavior):
-    __slots__ = ()
+    __slots__ = ('colspan',)
+
+    def __init__(self, box):
+        super().__init__(box)
+        self.colspan = box.attrs.get('colspan', None)
+        if self.colspan is not None:
+            self.colspan = int(self.colspan)
+            assert self.colspan > 0
+        else:
+            self.colspan = 1
 
     @property
     def cell_frame_top(self):

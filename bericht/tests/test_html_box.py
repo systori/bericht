@@ -1,19 +1,44 @@
 from bericht.tests.utils import BaseTestCase
 
 
-class TestTextWrap(BaseTestCase):
+class TestWordParsing(BaseTestCase):
 
     def get_box(self, content):
         return next(iter(self.parse(content)))
 
+    def get_words(self, content):
+        return list(map(str, self.get_box(content).boxes))
+
+    def test_blank(self):
+        self.assertEqual(self.get_words('<p>'), [])
+
+    def test_plain_words(self):
+        words = self.get_words('<p>hello world, bericht!')
+        self.assertEqual(words, ['hello', 'world,', 'bericht!'])
+
+    def test_styled_words(self):
+        words = self.get_words('<p>hello <i>world<b>,</b></i> <b>bericht</b><i>!</i>')
+        self.assertEqual(words, ['hello', 'world,', 'bericht!'])
+
+
+class TestWordWrapping(BaseTestCase):
+
+    def get_box(self, content):
+        return next(iter(self.parse(content)))
+
+    def get_lines(self, box):
+        return [list(map(str, line.words)) for line in box.lines]
+
     def test_blank(self):
         box = self.get_box('<p>')
-        self.assertEqual(box.children, [])
         box.wrap(None, 200)
         self.assertEqual(box.lines, [])
 
-    def test_single_line(self):
-        box = self.get_box('<p>hello <i>world</i>!')
-        self.assertEqual(len(box.children), 3)
-        box.wrap(None, 200)
-        self.assertEqual(box.lines, [])
+    def test_wrap_styled_words(self):
+        box = self.get_box('<p>hello <i>world<b>,</b></i> <b>bericht</b><i>!</i>')
+        box.wrap(None, 125)
+        self.assertEqual(self.get_lines(box), [['hello', 'world,', 'bericht!']])
+        box.wrap(None, 75)
+        self.assertEqual(self.get_lines(box), [['hello', 'world,'], ['bericht!']])
+        box.wrap(None, 50)
+        self.assertEqual(self.get_lines(box), [['hello'], ['world,'], ['bericht!']])

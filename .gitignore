@@ -1,6 +1,8 @@
 bericht.egg-info/
 __pycache__/
 .idea/
+.coverage
+coverage.xml
 dist/
 build/
 example/example.pdf

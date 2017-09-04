@@ -1,4 +1,3 @@
-from unittest import skip
 from bericht.pdf import PDFDocument
 from bericht.tests.utils import BaseTestCase
 
@@ -33,18 +32,18 @@ TABLE_HTML = """
 """.format('Second Long Item '*1000)
 
 
-@skip
 class TestTable(BaseTestCase):
+
+    def test_only_returns_rows(self):
+        nodes = list(self.parse(TABLE_HTML))
+        self.assertEqual(nodes[0].tag, 'tr')
+        self.assertEqual(nodes[1].tag, 'tr')
+        self.assertEqual(len(nodes), 2)
 
     def test_minimal_tags(self):
         nodes = self.parse(TABLE_HTML)
-
         row1, row2 = nodes
-        self.assertEqual(row1.tag, 'tr')
-        self.assertEqual(row2.tag, 'tr')
-
         page = PDFDocument(nodes.css).add_page()
-
         row1.wrap(page, page.available_width)
         row1.draw(page, page.x, page.y)
 

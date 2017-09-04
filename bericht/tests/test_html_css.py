@@ -1,7 +1,6 @@
 from unittest import TestCase
 from tinycss2 import parse_one_rule
 
-from bericht.html import *
 from bericht.html.css import parse_selectors
 from bericht.tests.utils import BaseTestCase
 

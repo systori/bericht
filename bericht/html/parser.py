@@ -113,38 +113,53 @@ class HTMLParser:
 
                 node = self.make_child(parent, tag, element.attrib)
 
+                if isinstance(node.behavior, Table) and self.table_columns:
+                    node.behavior.columns.behavior.measurements = self.table_columns.pop(0)
+
                 if isinstance(node.behavior, Table) and parent.tag == 'body':
                     yield from self.parse(node)
 
                 else:
+
+                    # root tables are a very special case
+                    # where the table and row groups
+                    # are not yielded but the table rows
+                    # themselves are yielded as "root nodes"
+
+                    skip_root_table_meta_groups = (  # don't yield <colgroup>, <thead>, <tbody>, <tfoot>
+                        parent.parent and parent.parent.tag == 'body' and
+                        isinstance(node.behavior, (TableRowGroup, TableColumnGroup))
+                    )
+
+                    yield_root_table_rows = (  # do yield <tr> that's inside <tbody>
+                        skip_root_table_meta_groups and
+                        node.style.display == 'table-row-group'
+                    )
 
                     position = 0
                     position_of_type = {}
 
                     for previous, (child_element, child_node), last in iter_previous_current_last(self.parse(node)):
                         if previous is not None:
-                            if previous[0].tail:
+                            if node.text_allowed and previous[0].tail:
                                 # insert text between previous node and current node
                                 node.insert(len(node.children)-2, previous[0].tail)
                         position_of_type.setdefault(child_node.tag, 0)
                         child_node.position = position = position + 1
                         child_node.position_of_type = position_of_type[child_node.tag] = position_of_type[child_node.tag] + 1
                         child_node.last = last
-                        if isinstance(child_node.behavior, TableRow) and\
-                                node.style.display == 'table-row-group' and\
-                                parent.parent.parent.tag == 'body':
+                        if yield_root_table_rows and isinstance(child_node.behavior, TableRow):
                             yield child_element, child_node
 
-                    if element.text:
+                    if node.text_allowed and element.text:
                         node.insert(0, element.text)
 
-                if not (parent.tag == 'body' and isinstance(node.behavior, Table)) and \
-                        not isinstance(node.behavior, TableRowGroup):
-                    yield element, node
+                    if not skip_root_table_meta_groups:
+                        yield element, node
 
             else:
 
-                if last_child is not None and last_child.tail:
+                if parent.text_allowed and last_child is not None and last_child.tail:
                     parent.add(last_child.tail)
 
                 break
@@ -156,11 +171,8 @@ class HTMLParser:
             display = TAG_TO_DISPLAY.get(tag, 'block')
             node.style = node.style.set(display=display)
         node.behavior = self.get_behavior(parent.behavior if parent else None, node)
-        if parent:
-            if parent.buffered:
-                parent.add(node)
-            elif tag == 'table':
-                node.buffered = False
+        if parent and parent.buffered:
+            parent.add(node)
         return node
 
     @staticmethod
@@ -205,9 +217,9 @@ class HTMLParser:
         columns = None
         for box in self.boxes():
             if isinstance(box.behavior, TableRow):
-                table = box.parent.parent
-                if table.get_columns() is not columns:
-                    columns = table.get_columns()
+                table = box.parent.parent.behavior
+                if table.columns is not columns:
+                    columns = table.columns.behavior
                     table_columns.append([0]*columns.count)
                     if table.thead:
                         for hrow in table.thead.children:
@@ -215,7 +227,7 @@ class HTMLParser:
                     if table.tfoot:
                         for frow in table.tfoot.children:
                             columns.measure(frow, table_columns[-1])
-                columns.measure(node, table_columns[-1])
+                columns.measure(box, table_columns[-1])
         return table_columns
 
     def boxes(self):
@@ -227,6 +239,6 @@ class HTMLParser:
         return map(lambda r: r[1], self.parse(node))
 
     def __iter__(self):
-        #if self.table_columns is None:
-        #    self.table_columns = self.measure_column_widths()
+        if self.table_columns is None:
+            self.table_columns = self.measure_column_widths()
         yield from self.boxes()
