@@ -67,7 +67,7 @@ class Combinator:
 
     @staticmethod
     def select_last_child(last_child):
-        return lambda node: last_child == node.last_child
+        return lambda node: last_child == node.last
 
     def add(self, selector, value, negate=False):
         matcher = selector(value)

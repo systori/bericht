@@ -204,10 +204,8 @@ class Behavior:
                     fragments.pop()  # last space
                 txt.draw(''.join(fragments), new_line=True)
             else:
-                # non-text line (probably some block element, list item or table)
-                # TODO: calculate y offset after some text lines have been written
-                #       currently vertical movement is handled internally by PDF 'T*' command
-                _, y = line.draw(page, x, y)
+                line.draw(page, final_x, final_y + y)
+            y -= line.height
         txt.close()
         return final_x, final_y
 

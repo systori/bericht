@@ -1,4 +1,4 @@
-from .style import BorderCollapse
+from .style import BorderCollapse, VerticalAlign
 from .box import Box, Behavior
 
 
@@ -514,37 +514,19 @@ class TableCell(Behavior):
             (self.width, 0),  # bottom right
         )
 
-    def cell_draw(self, page, x, y):
-        x += self.frame_left
-        if self.style.vertical_align == VerticalAlign.top:
-            y -= self.frame_top
-        elif self.style.vertical_align == VerticalAlign.middle:
-            y -= (self.height + sum(self.content_heights)) / 2.0
+    @property
+    def content_height(self):
+        return sum(b.height for b in self.box.lines)
+
+    def draw(self, page, x, y):
+        x += self.box.frame_left
+        if self.box.style.vertical_align == VerticalAlign.top:
+            y -= self.box.frame_top
+        elif self.box.style.vertical_align == VerticalAlign.middle:
+            y -= (self.box.height + self.content_height) / 2.0
         else:
-            y -= self.height - (sum(self.content_heights) + self.frame_bottom)
-
-        for block, height in zip(self.children, self.content_heights):
-            block.draw(page, x, y)
-            y -= height
-
-    def cell_wrap(self, page, available_width):
-        self.width = available_width
-        self.content_heights = []
-
-        self.css.apply(self)
-        if self.parent:
-            self.style = self.style.inherit(self.parent.style)
-
-        content_width = available_width - self.frame_width
-
-        consumed = 0
-        for block in self.children:
-            _, height = block.wrap(page, content_width)
-            consumed += height
-            self.content_heights.append(height)
-
-        self.height = self.frame_height + consumed
-        return available_width, self.height
+            y -= self.box.height - (self.content_height + self.box.frame_bottom)
+        super().draw(page, x, y)
 
     def cell_split(self, top_parent, bottom_parent, available_height):
 
