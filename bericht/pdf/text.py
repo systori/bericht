@@ -53,8 +53,9 @@ class PDFText:
             self.write("/{} {} Tf {} TL\n".format(name, self.font_size, self.font_leading))
             self.write("(%s) Tj ".format(font.formatForPdf(txt)))
         else:
+            _font = None
             for f, t in pdfmetrics.unicode2T1(txt, [font]+font.substitutionFonts):
-                if f != font:
+                if f != _font:
                     name = doc.fontMapping.get(f.fontName)
                     if name is None:
                         name = doc.fontMapping[font.fontName] = '/F{}'.format(len(doc.fontMapping)+1)
@@ -63,8 +64,8 @@ class PDFText:
                         doc.font_references[name] = doc.ref()
                     if name not in self.page.font:
                         self.page.font[name] = doc.font_references[name]
-                    self.write("/{} {} Tf {} TL\n".format(name, self.font_size, self.font_leading))
-                    font = f
+                    self.write("{} {} Tf {} TL\n".format(name, self.font_size, self.font_leading))
+                    _font = f
                 self.write("({}) Tj ".format(escapePDF(t)))
 
         if new_line:

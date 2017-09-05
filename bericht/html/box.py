@@ -13,6 +13,14 @@ def pairwise(iterable):
     return zip(a, b)
 
 
+def flatten(sub):
+    for line in sub:
+        if isinstance(line, Line):
+            yield from line.words
+        else:
+            yield line
+
+
 class StyledPart:
     __slots__ = ('style', 'part')
 
@@ -106,9 +114,6 @@ class Behavior:
         self.box.width = available_width
         self.box.height = 0
 
-        if not self.box.children:
-            return 0, 0
-
         line = None
         self.box.lines = lines = []
 
@@ -133,6 +138,8 @@ class Behavior:
                 if not line:
                     line = Line()
                     lines.append(line)
+                box.wrap(page, available_width)
+                line.height = max(box.height, line.height)
                 line.add(box)
                 line = None
 
@@ -142,21 +149,29 @@ class Behavior:
                 box.wrap(page, available_width)
                 lines.append(box)
 
-        self.box.height = self.box.frame_height + sum(b.height for b in lines)
+        content_height = sum(b.height for b in lines)
+        if self.box.tag == 'br':
+            content_height = self.box.style.leading
+
+        self.box.height = self.box.frame_height + content_height
 
         return max_width, self.box.height
 
     def split(self, top_container, bottom_container, available_height):
-        lines = floor(available_height / self.style.leading)
-        if lines == len(self.children):
-            self.parent = top_container
+        lines = floor(available_height / self.box.style.leading)
+        if lines == len(self.box.children):
+            self.box.parent = top_container
             top_container.children.append(self)
             return self, None
         else:
-            top = Paragraph(self.tag, top_container, self.id, self.classes, self.css, self.position)
-            top.words = list(chain(*self.children[:lines]))
-            bottom = Paragraph(self.tag, bottom_container, self.id, self.classes, self.css, self.position)
-            bottom.words = list(chain(*self.children[lines:]))
+            top = Box(top_container, self.box.tag, self.box.attrs)
+            top.position = self.box.position
+            top.position_of_type = self.box.position
+            top.children = list(flatten(self.box.lines[:lines]))
+            bottom = Box(bottom_container, self.box.tag, self.box.attrs)
+            bottom.position = self.box.position
+            bottom.position_of_type = self.box.position
+            bottom.children = list(flatten(self.box.lines[lines:]))
             return top, bottom
 
     def draw(self, page, x, y):
@@ -175,17 +190,16 @@ class Behavior:
                     txt.set_position((width - line.width) / 2.0)
                 fragments = []
                 for word in line.words:
-                    if word is not Word:
-                        continue
-                    for part in word.parts:
-                        if style != part.style:
-                            if fragments:
-                                txt.draw(''.join(fragments))
-                                fragments = []
-                            style = part.style
-                            txt.set_font(style.font_name, style.font_size, style.leading)
-                        fragments.append(part.part)
-                    fragments.append(' ')
+                    if isinstance(word, Word):
+                        for part in word.parts:
+                            if style != part.style:
+                                if fragments:
+                                    txt.draw(''.join(fragments))
+                                    fragments = []
+                                style = part.style
+                                txt.set_font(style.font_name, style.font_size, style.leading)
+                            fragments.append(part.part)
+                        fragments.append(' ')
                 if fragments and fragments[-1] == ' ':
                     fragments.pop()  # last space
                 txt.draw(''.join(fragments), new_line=True)
@@ -351,7 +365,7 @@ class Box:
         for child in self.children:
             if isinstance(child, str):
                 yield child, self
-            elif child.style.display == 'inline':
+            elif child.style.display == 'inline' and not child.tag == 'br':
                 yield from child.traverse()
             else:
                 yield child, self

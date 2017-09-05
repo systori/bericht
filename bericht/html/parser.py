@@ -1,4 +1,3 @@
-from itertools import chain
 from lxml import etree
 from .box import *
 from .table import *
@@ -70,6 +69,18 @@ def iter_previous_current_last(child_iter):
         yield previous_child, current_child, True
 
 
+class GrowingList(list):
+    def __getitem__(self, index):
+        if index >= len(self):
+            self.extend([0]*(index + 1 - len(self)))
+        return super().__getitem__(index)
+
+    def __setitem__(self, index, value):
+        if index >= len(self):
+            self.extend([0]*(index + 1 - len(self)))
+        super().__setitem__(index, value)
+
+
 class HTMLParser:
 
     def __init__(self, html_generator, css=None):
@@ -114,7 +125,9 @@ class HTMLParser:
                 node = self.make_child(parent, tag, element.attrib)
 
                 if isinstance(node.behavior, Table) and self.table_columns:
-                    node.behavior.columns.behavior.measurements = self.table_columns.pop(0)
+                    measurements_data = self.table_columns.pop(0)
+                    node.behavior.columns.behavior.measurements = measurements_data['maximums']
+                    node.behavior.columns.behavior.span = measurements_data['span']
 
                 if isinstance(node.behavior, Table) and parent.tag == 'body':
                     yield from self.parse(node)
@@ -218,9 +231,12 @@ class HTMLParser:
         for box in self.boxes():
             if isinstance(box.behavior, TableRow):
                 table = box.parent.parent.behavior
-                if table.columns is not columns:
+                if table.columns.behavior is not columns:
                     columns = table.columns.behavior
-                    table_columns.append([0]*columns.count)
+                    table_columns.append({
+                        'maximums': GrowingList(),
+                        'span': 1
+                    })
                     if table.thead:
                         for hrow in table.thead.children:
                             columns.measure(hrow, table_columns[-1])

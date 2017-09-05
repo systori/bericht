@@ -197,9 +197,7 @@ class TableColumnGroup(Behavior):
 
     def __init__(self, box):
         super().__init__(box)
-        self.span = box.attrs.get('span', None)
-        if self.span is not None:
-            self.span = int(self.span)
+        self.span = int(box.attrs.get('span', 1))
         self.widths = None
         self.measurements = []
 
@@ -215,7 +213,7 @@ class TableColumnGroup(Behavior):
 
     def get_widths(self, available_width):
         if self.widths is None:
-            if self.span is None:
+            if self.measurements:
                 self.calculate_widths(available_width)
             else:
                 self.widths = [available_width/self.span] * self.span
@@ -223,7 +221,7 @@ class TableColumnGroup(Behavior):
 
     def calculate_widths(self, available_width):
 
-        widths = self.measurements[:]
+        widths = self.measurements.copy()
 
         fixed = sum(widths)
 
@@ -240,8 +238,10 @@ class TableColumnGroup(Behavior):
 
         self.widths = widths
 
-    def measure(self, row, maximums):
+    def measure(self, row, data):
+        maximums = data['maximums']
         if not self.box.children:
+            data['span'] = max(data['span'], len(row.children))
             return
         cols = iter(self.box.children)
         icol = 0
@@ -249,7 +249,8 @@ class TableColumnGroup(Behavior):
             if not cell or cell.behavior.colspan == 1:
                 col = next(cols)
                 if cell and cell.children:
-                    maximums[icol] = max(maximums[icol], col.behavior.measure(cell) + cell.frame_width)
+                    width = col.behavior.measure(cell) + cell.frame_width
+                    maximums[icol] = max(maximums[icol], width)
                 icol += 1
             else:
                 # multi-column spans aren't measured
@@ -402,22 +403,28 @@ class TableRow(Behavior):
         self.box.height = self.box.frame_height + max_height
         return self.box.width, self.box.height
 
-    def table_row_split(self, top_parent, bottom_parent, available_height):
-        if available_height >= self.height:
+    def split(self, top_parent, bottom_parent, available_height):
+        if available_height >= self.box.height:
             return self, None
 
-        content_height = available_height - self.frame_height
-        top_half = Row(self.tag, self.parent, self.id, self.classes, self.css, self.position)
-        bottom_half = Row(self.tag, self.parent, self.id, self.classes, self.css, self.position+1)
+        content_height = available_height - self.box.frame_height
+        top_half = Box(self.box.parent, self.box.tag, self.box.attrs)
+        top_half.behavior = self.box.behavior
+        top_half.position = self.box.position
+        top_half.position_of_type = self.box.position_of_type
+        bottom_half = Box(self.box.parent, self.box.tag, self.box.attrs)
+        bottom_half.behavior = self.box.behavior
+        bottom_half.position = self.box.position+1
+        bottom_half.position_of_type = self.box.position_of_type+1
 
-        for cell in self.children:
+        for cell in self.box.children:
             if cell:
                 cell.split(top_half, bottom_half, content_height)
 
         if any(c.children for c in bottom_half.children if c):
-            bottom_half.last_child = self.last_child
+            bottom_half.last = self.box.last
             return top_half, bottom_half
-        top_half.last_child = self.last_child
+        top_half.last = self.box.last
         return top_half, None
 
     def draw(self, page, x, y):

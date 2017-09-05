@@ -1,25 +1,24 @@
-from reportlab.platypus.doctemplate import SimpleDocTemplate
-from reportlab.lib.pagesizes import letter
-from bericht.html import *
+from bericht.html import HTMLParser, CSS
+from bericht.pdf import PDFStreamer
+
+css = CSS("""
+
+""")
 
 
-doc = SimpleDocTemplate('example.pdf', pagesize=letter)
-doc.build(parse_html("""
+def html():
+    yield """
+<p>Some descriptive text for the table.</p>
+<br>
 <table>
   <tr>
-    <td>
-        <p><i>Some <b>people</b> don't like change, but you need to
-        embrace change if the alternative is <b>disaster</b>.</i></p>
-    </td>
-    <td>
-        <p>People <b>work</b> better when they know what the goal is
+    <td><i>Some <b>people</b> don't like change, but you need to
+        embrace change if the alternative is <b>disaster</b>.</i>
+    <td>People <b>work</b> better when they know what the goal is
         and why. It is important that people look forward
-        to coming to <b>work</b> in the morning and enjoy <b>work</b>ing.</p>
-    </td>
-  </tr>
+        to coming to <b>work</b> in the morning and enjoy <b>work</b>ing.
   <tr>
     <td colspan="2">
-    <p>
     Alright, thank you. <br/>
     So, I’ve got about apparently I’ve got about five to six minutes to say the most useful things I can think of. <br/>
     I’m gonna do my best. <br/>
@@ -81,8 +80,9 @@ doc.build(parse_html("""
     You won’t regret it. Thank you....<br/>
     <br/>
     ...I don’t know if it was helpful. Great.<br/>
-    </p>
-    </td>
-  </tr>
-</table>
-"""))
+"""
+
+
+with open('example.pdf', 'wb') as output:
+    for page in PDFStreamer(HTMLParser(html, css)):
+        output.write(page)
