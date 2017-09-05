@@ -1,3 +1,8 @@
+0.1.02
+------
+
+* Table cell rendering fix.
+
 0.1.01
 ------
 
