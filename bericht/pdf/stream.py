@@ -29,10 +29,9 @@ class PDFStreamer:
                         page = None
                     break
                 else:
-                    remainder, block = block.split(None, None, page.available_height)
+                    remainder, block = block.split(None, None, page.available_height, self.generator.css)
                     if remainder:
-                        _, requested_height = remainder.wrap(page, page.available_width)
-                        #assert requested_height <= page.available_height
+                        remainder.wrap(page, page.available_width)
                         page.x, page.y = remainder.draw(page, page.x, page.y)
                     assert page.has_content
                     yield from page.read()

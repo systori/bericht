@@ -7,6 +7,7 @@ __all__ = ('HTMLParser',)
 
 TAG_TO_DISPLAY = {
     'table': 'table',
+    'caption': 'table-caption',
     'colgroup': 'table-column-group',
     'col': 'table-column',
     'thead': 'table-header-group',
@@ -141,7 +142,7 @@ class HTMLParser:
 
                     skip_root_table_meta_groups = (  # don't yield <colgroup>, <thead>, <tbody>, <tfoot>
                         parent.parent and parent.parent.tag == 'body' and
-                        isinstance(node.behavior, (TableRowGroup, TableColumnGroup))
+                        isinstance(node.behavior, (TableRowGroup, TableColumnGroup, TableCaption))
                     )
 
                     yield_root_table_rows = (  # do yield <tr> that's inside <tbody>
@@ -205,7 +206,10 @@ class HTMLParser:
         elif parent:
 
             if isinstance(parent, Table):
-                if display == 'table-column-group':
+                if display == 'table-caption':
+                    return TableCaption(node)
+
+                elif display == 'table-column-group':
                     return TableColumnGroup(node)
 
                 elif display in ('table-header-group', 'table-row-group', 'table-footer-group'):

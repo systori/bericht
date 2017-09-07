@@ -1,19 +1,20 @@
+from .box import Box, Behavior, flatten
 from .style import BorderCollapse, VerticalAlign
-from .box import Box, Behavior
 
 
 __all__ = (
-    'Table',
+    'Table', 'TableCaption',
     'TableColumnGroup', 'TableColumn',
     'TableRowGroup', 'TableRow', 'TableCell'
 )
 
 
 TABLE_CHILDREN = {
-    'table-column-group': 0,
-    'table-header-group': 1,
-    'table-row-group': 2,
-    'table-footer-group': 3
+    'table-caption': 0,
+    'table-column-group': 1,
+    'table-header-group': 2,
+    'table-row-group': 3,
+    'table-footer-group': 4
 }
 
 
@@ -23,13 +24,17 @@ class Table(Behavior):
     def __init__(self, box):
         super().__init__(box)
         columns = Box(self.box, 'colgroup', {})
-        box.children = [columns, None, None, None]
         columns.style = columns.style.set(display='table-column-group')
         columns.behavior = TableColumnGroup(columns)
+        box.children = [None, columns, None, None, None]
 
     @property
     def text_allowed(self):
         return False
+
+    @property
+    def caption(self):
+        return self.box.children[TABLE_CHILDREN['table-caption']]
 
     @property
     def columns(self):
@@ -50,12 +55,17 @@ class Table(Behavior):
     def add(self, child):
         i = TABLE_CHILDREN[child.style.display]
         if i != TABLE_CHILDREN['table-column-group']:
-            assert self.box.children[i] is None
+            assert self.box.children[i] is None,\
+                "<{}>, a '{}', was defined more than once in a table.".format(
+                    child.tag, child.style.display
+                )
         if i == TABLE_CHILDREN['table-row-group']:
             child.buffered = self.box.parent.tag != 'body'
         else:
             child.style = child.style.set(visibility=False)
             if i == TABLE_CHILDREN['table-column-group']:
+                # explicitly defined <colgroup> overwrites the default columns
+                # but we want to preserve any measurements from the implicit <colgroup>
                 child.behavior.measurements = self.columns.behavior.measurements
         self.box.children[i] = child
 
@@ -73,12 +83,12 @@ class Table(Behavior):
         return 0
 
     def wrap(self, page, available_width):
-        self.height = (
+        self.box.height = (
             self.reserve_header_height(page, available_width) +
             self.tbody.wrap(page, available_width) +
             self.reserve_header_height(page, available_width)
         )
-        self.width = available_width
+        self.box.width = available_width
         return self.width, self.height
 
     def draw_header(self, page, x, y):
@@ -192,6 +202,10 @@ class Table(Behavior):
         ]
 
 
+class TableCaption(Behavior):
+    __slots__ = ()
+
+
 class TableColumnGroup(Behavior):
     __slots__ = ('widths', 'measurements', 'span')
 
@@ -249,7 +263,7 @@ class TableColumnGroup(Behavior):
             if not cell or cell.behavior.colspan == 1:
                 col = next(cols)
                 if cell and cell.children:
-                    width = col.behavior.measure(cell) + cell.frame_width
+                    width = col.behavior.measure(cell) + cell.behavior.frame_width
                     maximums[icol] = max(maximums[icol], width)
                 icol += 1
             else:
@@ -337,27 +351,39 @@ class TableRow(Behavior):
     __slots__ = ()
 
     @property
+    def collapsed(self):
+        return self.box.parent.parent.style.border_collapse == BorderCollapse.collapse
+
+    @property
+    def horizontal_spacing(self):
+        return self.box.parent.parent.style.border_spacing_horizontal
+
+    @property
+    def vertical_spacing(self):
+        return self.box.parent.parent.style.border_spacing_vertical
+
+    @property
     def text_allowed(self):
         return False
 
     @property
-    def table_row_frame_top(self):
+    def frame_top(self):
         if self.collapsed:
-            return self.style.border_top_width
+            return self.box.style.border_top_width
         return 0
 
     @property
-    def table_row_frame_right(self):
+    def frame_right(self):
         return 0
 
     @property
-    def table_row_frame_bottom(self):
+    def frame_bottom(self):
         if self.collapsed:
-            return self.style.border_bottom_width
+            return self.box.style.border_bottom_width
         return 0
 
     @property
-    def table_row_frame_left(self):
+    def frame_left(self):
         return 0
 
     def wrap(self, page, available_width):
@@ -385,14 +411,13 @@ class TableRow(Behavior):
             else:
                 cell_widths.append(0)
                 for col in range(cell.behavior.colspan):
-                    # TODO: re-implement cell_spacing
-                    cell_widths[-1] += next(col_width)  # + self.box.cell_spacing / 2.0
+                    cell_widths[-1] += next(col_width)
+                    if self.collapsed:
+                        cell_widths[-1] += self.horizontal_spacing / 2.0
 
         max_height = 0
         for cell, cell_width in zip(children, cell_widths):
             if cell is not None:
-                # TODO: re-implement collapsed
-                #cell.collapsed = self.collapsed
                 _, height = cell.wrap(page, cell_width)
                 max_height = max(max_height, height)
 
@@ -400,32 +425,29 @@ class TableRow(Behavior):
             if not cell: continue
             cell.height = max_height
 
-        self.box.height = self.box.frame_height + max_height
+        self.box.height = self.frame_height + max_height
         return self.box.width, self.box.height
 
-    def split(self, top_parent, bottom_parent, available_height):
-        if available_height >= self.box.height:
-            return self, None
+    def split(self, top_parent, bottom_parent, available_height, css):
+        top_row = self.clone(top_parent, [], css)
+        bottom_row = self.clone(bottom_parent, [], css)
+        # TODO: advance `position` attribute of bottom element, which means all subsequent
+        #       rows also need to be advanced by one
 
-        content_height = available_height - self.box.frame_height
-        top_half = Box(self.box.parent, self.box.tag, self.box.attrs)
-        top_half.behavior = self.box.behavior
-        top_half.position = self.box.position
-        top_half.position_of_type = self.box.position_of_type
-        bottom_half = Box(self.box.parent, self.box.tag, self.box.attrs)
-        bottom_half.behavior = self.box.behavior
-        bottom_half.position = self.box.position+1
-        bottom_half.position_of_type = self.box.position_of_type+1
-
+        content_height = available_height - self.frame_height
         for cell in self.box.children:
+            top_cell, bottom_cell = None, None
             if cell:
-                cell.split(top_half, bottom_half, content_height)
+                top_cell, bottom_cell = cell.split(top_row, bottom_row, content_height, css)
+            top_row.children.append(top_cell)
+            bottom_row.children.append(bottom_cell)
 
-        if any(c.children for c in bottom_half.children if c):
-            bottom_half.last = self.box.last
-            return top_half, bottom_half
-        top_half.last = self.box.last
-        return top_half, None
+        if top_row.children[-1]:
+            top_row.children[-1].last = True
+        if bottom_row.children[-1]:
+            bottom_row.children[-1].last = True
+
+        return top_row, bottom_row
 
     def draw(self, page, x, y):
         table = self.box.parent.parent
@@ -435,26 +457,26 @@ class TableRow(Behavior):
 
     def _draw(self, page, x, y):
         original_x, original_y = x, y
-        # TODO: re-implement cell_spacing
-        #x += self.cell_spacing / 2.0
-        #y -= self.height
-        y -= self.box.frame_top
+        if self.collapsed:
+            x += self.horizontal_spacing / 2.0
+        y -= self.frame_top
         children = self.box.children
         cell_widths = self.box.lines
         last = len(cell_widths)-1
         for i, (cell, width) in enumerate(zip(children, cell_widths)):
             if cell:
-                #if False and self.collapsed:
-                #    self.draw_collapsed_cell_border(
-                #        None if i == 0 else self.children[i-1],
-                #        cell,
-                #        None if i == last else self.children[i+1],
-                #    )
-                #else:
-                cell.draw_border_and_background(page, x, original_y - self.box.height)
-                cell.draw(page, x, y)
-            # TODO: re-implement cell_spacing
-            x += width #+ self.cell_spacing / 2.0
+                if False and self.collapsed:
+                    self.draw_collapsed_cell_border(
+                        None if i == 0 else self.box.children[i-1],
+                        cell,
+                        None if i == last else self.box.children[i+1],
+                    )
+                else:
+                    cell.behavior.draw_border_and_background(page, x, original_y - self.box.height)
+                    cell.behavior.draw(page, x, y)
+            x += width
+            if self.collapsed:
+                x += self.horizontal_spacing / 2.0
         return original_x, original_y - self.box.height
 
     def draw_collapsed_cell_border(self, before, cell, after):
@@ -474,117 +496,41 @@ class TableCell(Behavior):
             self.colspan = 1
 
     @property
-    def cell_frame_top(self):
-        s = self.style
-        if self.collapsed:
-            return s.border_top_width/2 + s.padding_top
-        else:
-            return s.border_top_width + s.padding_top
+    def frame_top(self):
+        s = self.box.style
+        return s.border_top_width + s.padding_top
 
     @property
-    def cell_frame_right(self):
-        s = self.style
-        if self.collapsed:
-            return s.padding_right + s.border_right_width/2.0
-        else:
-            return s.padding_right + s.border_right_width
+    def frame_right(self):
+        s = self.box.style
+        return s.padding_right + s.border_right_width
 
     @property
-    def cell_frame_bottom(self):
-        s = self.style
-        if self.collapsed:
-            return s.border_bottom_width/2.0 + s.padding_bottom
-        else:
-            return s.border_bottom_width + s.padding_bottom
+    def frame_bottom(self):
+        s = self.box.style
+        return s.border_bottom_width + s.padding_bottom
 
     @property
-    def cell_frame_left(self):
-        s = self.style
-        if self.collapsed:
-            return s.border_left_width/2.0 + s.padding_left
-        else:
-            return s.border_left_width + s.padding_left
+    def frame_left(self):
+        s = self.box.style
+        return s.border_left_width + s.padding_left
 
     @property
-    def cell_border_box(self):
+    def border_box(self):
+        width, height = self.box.width, self.box.height
         return (
-            (0, self.height),  # top left
-            (self.width, self.height),  # top right
+            (0, height),  # top left
+            (width, height),  # top right
             (0, 0),  # bottom left
-            (self.width, 0),  # bottom right
+            (width, 0),  # bottom right
         )
 
-    @property
-    def content_height(self):
-        return sum(b.height for b in self.box.lines)
-
     def draw(self, page, x, y):
-        x += self.box.frame_left
+        x += self.frame_left
         if self.box.style.vertical_align == VerticalAlign.top:
-            y -= self.box.frame_top
+            y -= self.frame_top
         elif self.box.style.vertical_align == VerticalAlign.middle:
             y -= (self.box.height + self.content_height) / 2.0
         else:
-            y -= self.box.height - (self.content_height + self.box.frame_bottom)
+            y -= self.box.height - (self.content_height + self.frame_bottom)
         super().draw(page, x, y)
-
-    def cell_split(self, top_parent, bottom_parent, available_height):
-
-        if not self.content_heights:
-            self.parent = top_parent
-            top_parent.children.append(self)
-            bottom_parent.children.append(None)
-            return
-
-        if self.style.vertical_align == VerticalAlign.top:
-            consumed_height = self.frame_top
-        elif self.style.vertical_align == VerticalAlign.middle:
-            consumed_height = (self.height - sum(self.content_heights)) / 2.0
-        else:
-            consumed_height = self.height - (sum(self.content_heights) + self.frame_bottom)
-
-        if consumed_height >= available_height:
-            # border and padding don't even fit
-            top_parent.children.append(None)
-            self.parent = bottom_parent
-            bottom_parent.children.append(self)
-            return
-
-        split_at_block, split_block_height = -1, 0
-        for split_at_block, split_block_height in enumerate(self.content_heights):
-            consumed_height += split_block_height
-            if consumed_height >= available_height:
-                break
-
-        if consumed_height <= available_height:
-            if len(self.children) == 1 or len(self.children)-1 == split_at_block:
-                self.parent = top_parent
-                top_parent.children.append(self)
-                bottom_parent.children.append(None)
-                return
-            else:
-                top_cell = Cell(self.tag, top_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
-                for top_child in self.children[:split_at_block+1]:
-                    top_child.parent = top_cell
-                    top_cell.children.append(top_child)
-                bottom_cell = Cell(self.tag, bottom_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
-                for bottom_child in self.children[split_at_block-1:]:
-                    bottom_child.parent = bottom_cell
-                    bottom_cell.children.append(bottom_child)
-                return top_cell, bottom_cell
-
-        top_cell = Cell(self.tag, top_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
-        for top_child in self.children[:split_at_block]:
-            top_child.parent = top_cell
-            top_cell.children.append(top_child)
-
-        block = self.children[split_at_block]
-        bottom_cell = Cell(self.tag, bottom_parent, self.id, self.classes, self.css, self.position, colspan=self.colspan)
-
-        block.split(top_cell, bottom_cell, available_height - (consumed_height - split_block_height))
-
-        for bottom_child in self.children[split_at_block+1:]:
-            bottom_child.parent = bottom_cell
-            bottom_cell.children.append(bottom_child)
-
-        return top_cell, bottom_cell

@@ -1,9 +1,9 @@
 from tinycss2 import (
-    parse_stylesheet, parse_declaration_list, parse_one_component_value,
+    parse_stylesheet, parse_declaration_list,
     ast, nth, color3
 )
 
-from bericht.html.style import Style
+from bericht.html.style import Style, BorderCollapse, BorderStyle
 
 __all__ = ('CSS',)
 
@@ -20,11 +20,11 @@ units = {
 }
 
 
-def convert(unit, value):
-    if unit in units:
-        return value * units[unit]
+def convert(value):
+    if value.unit in units:
+        return value.value * units[value.unit]
     raise NotImplementedError(
-        'Dimension unit "{}" is not implemented yet.'.format(value)
+        'Dimension unit "{}" is not implemented yet.'.format(value.unit)
     )
 
 
@@ -110,18 +110,33 @@ class Declarations:
                     self.attrs['page_bottom_right_content'] = at_dec.attrs['content']
                 else:
                     raise NotImplementedError
+            elif declaration.name == 'content':
+                self.attrs[declaration.name.replace('-', '_')] = parse_content_value(declaration.value)
             else:
-                value_component = parse_one_component_value(declaration.value, skip_comments=True)
-                if 'color' in declaration.name:
-                    self.attrs[declaration.name.replace('-', '_')] = color3.parse_color(value_component)
-                elif 'content' == declaration.name:
-                    self.attrs[declaration.name.replace('-', '_')] = parse_content_value(declaration.value)
-                elif isinstance(value_component, ast.DimensionToken):
-                    self.attrs[declaration.name.replace('-', '_')] = convert(
-                        value_component.lower_unit, value_component.value
+                attr = declaration.name.replace('-', '_')
+                value_parts = parse_value_parts(declaration.value)
+                if declaration.name == 'border-color':
+                    apply_box_values(self.attrs, 'border_{}_color', list(map(color3.parse_color, value_parts)))
+                elif declaration.name in ('color', 'background-color'):
+                    self.attrs[attr] = color3.parse_color(value_parts[0])
+                elif declaration.name == 'border-width':
+                    apply_box_values(self.attrs, 'border_{}_width', list(map(convert, value_parts)))
+                elif declaration.name in ('margin', 'padding'):
+                    apply_box_values(
+                        self.attrs, declaration.name+'_{}',
+                        list(map(convert, value_parts))
                     )
+                elif declaration.name == 'border-style':
+                    apply_box_values(
+                        self.attrs, 'border_{}_style',
+                        list(map(lambda v: getattr(BorderStyle, v.value), value_parts))
+                    )
+                elif declaration.name == 'border-collapse':
+                    self.attrs['border_collapse'] = getattr(BorderCollapse, value_parts[0].value)
+                elif isinstance(value_parts[0], ast.DimensionToken):
+                    self.attrs[attr] = convert(value_parts[0])
                 else:
-                    self.attrs[declaration.name.replace('-', '_')] = value_component.value
+                    self.attrs[attr] = value_parts[0].value
 
     def apply(self, node):
         if node.style:
@@ -129,6 +144,33 @@ class Declarations:
         else:
             parent = Style.default() if node.parent is None else node.parent.style
             node.style = parent.set(**self.attrs)
+
+
+def apply_box_values(attrs, attr, values):
+    if len(values) == 1:
+        attrs[attr.format('top')] = values[0]
+        attrs[attr.format('right')] = values[0]
+        attrs[attr.format('bottom')] = values[0]
+        attrs[attr.format('left')] = values[0]
+    elif len(values) == 2:
+        attrs[attr.format('top')] = values[0]
+        attrs[attr.format('right')] = values[1]
+        attrs[attr.format('bottom')] = values[0]
+        attrs[attr.format('left')] = values[1]
+    elif len(values) == 3:
+        attrs[attr.format('top')] = values[0]
+        attrs[attr.format('right')] = values[1]
+        attrs[attr.format('bottom')] = values[2]
+        attrs[attr.format('left')] = values[1]
+    else:
+        (attrs[attr.format('top')],
+         attrs[attr.format('right')],
+         attrs[attr.format('bottom')],
+         attrs[attr.format('left')]) = values
+
+
+def parse_value_parts(tokens):
+    return list(filter(lambda token: token.type not in ('whitespace', 'comment'), tokens))
 
 
 def parse_content_value(value):

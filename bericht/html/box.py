@@ -1,16 +1,9 @@
 from math import floor
-from itertools import chain, tee
 from string import whitespace
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
-from .style import TextAlign, default as default_style
+from .style import TextAlign, default as default_style, VerticalAlign
 
 __all__ = ('Box', 'Block', 'Inline', 'ListItem')
-
-
-def pairwise(iterable):
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
 
 
 def flatten(sub):
@@ -110,6 +103,48 @@ class Behavior:
         if self.box.buffered:
             self.box.children.insert(i, child)
 
+    @property
+    def frame_top(self):
+        s = self.box.style
+        return s.margin_top + s.border_top_width + s.padding_top
+
+    @property
+    def frame_right(self):
+        s = self.box.style
+        return s.padding_right + s.border_right_width + s.margin_right
+
+    @property
+    def frame_bottom(self):
+        s = self.box.style
+        return s.margin_bottom + s.border_bottom_width + s.padding_bottom
+
+    @property
+    def frame_left(self):
+        s = self.box.style
+        return s.margin_left + s.border_left_width + s.padding_left
+
+    @property
+    def frame_width(self):
+        return self.frame_left + self.frame_right
+
+    @property
+    def frame_height(self):
+        return self.frame_top + self.frame_bottom
+
+    @property
+    def border_box(self):
+        s, width, height = self.box.style, self.box.width, self.box.height
+        return (
+            (s.margin_left, height-s.margin_top),  # top left
+            (width-s.margin_right, height-s.margin_top),  # top right
+            (s.margin_left, s.margin_bottom),  # bottom left
+            (width-s.margin_right, s.margin_bottom),  # bottom right
+        )
+
+    @property
+    def content_height(self):
+        return sum(b.height for b in self.box.lines)
+
     def wrap(self, page, available_width):
         self.box.width = available_width
         self.box.height = 0
@@ -153,26 +188,90 @@ class Behavior:
         if self.box.tag == 'br':
             content_height = self.box.style.leading
 
-        self.box.height = self.box.frame_height + content_height
+        self.box.height = self.frame_height + content_height
 
         return max_width, self.box.height
 
-    def split(self, top_container, bottom_container, available_height):
-        lines = floor(available_height / self.box.style.leading)
-        if lines == len(self.box.children):
-            self.box.parent = top_container
-            top_container.children.append(self)
-            return self, None
+    def clone(self, parent, lines, css):
+        box = Box(parent, self.box.tag, self.box.attrs)
+        box.behavior = self
+        box.position = self.box.position
+        box.position_of_type = self.box.position_of_type
+        css.apply(box)
+
+        position = 0
+        position_of_type = {}
+        for child in flatten(lines):
+            if isinstance(child, Box):
+                child.parent = box
+                child.style = box.style.inherit()
+                position_of_type.setdefault(child.tag, 0)
+                child.position = position = position + 1
+                child.position_of_type = position_of_type[child.tag] = position_of_type[child.tag] + 1
+                child.last = False
+            box.children.append(child)
+        for child in reversed(box.children):
+            if isinstance(child, Box):
+                child.last = True
+                break
+        # TODO: need to re-apply CSS to all descendant children too
+        map(css.apply, (child for child in box.children if isinstance(child, Box)))
+
+        return box
+
+    def split(self, top_parent, bottom_parent, available_height, css):
+
+        if not self.box.lines:
+            return (
+                self.clone(top_parent, [], css),
+                self.clone(bottom_parent, [], css)
+            )
+
+        consumed = 0
+
+        if self.box.style.vertical_align == VerticalAlign.top:
+            consumed = self.frame_top
+        elif self.box.style.vertical_align == VerticalAlign.middle:
+            consumed = (self.box.height - self.content_height) / 2.0
+        elif self.box.style.vertical_align == VerticalAlign.bottom:
+            consumed = self.box.height - (self.content_height + self.frame_bottom)
+
+        if consumed >= available_height:
+            # border and padding don't even fit
+            return (
+                self.clone(top_parent, [], css),
+                self.clone(bottom_parent, self.box.lines, css)
+            )
+
+        split_at_line = line = None
+        for split_at_line, line in enumerate(self.box.lines):
+            if consumed+line.height > available_height:
+                break
+            consumed += line.height
+
+        if isinstance(line, Line):
+
+            if split_at_line == 0:
+                return (
+                    self.clone(top_parent, [], css),
+                    self.clone(bottom_parent, self.box.lines, css)
+                )
+
+            return (
+                self.clone(top_parent, self.box.lines[:split_at_line], css),
+                self.clone(bottom_parent, self.box.lines[split_at_line:], css)
+            )
+
         else:
-            top = Box(top_container, self.box.tag, self.box.attrs)
-            top.position = self.box.position
-            top.position_of_type = self.box.position
-            top.children = list(flatten(self.box.lines[:lines]))
-            bottom = Box(bottom_container, self.box.tag, self.box.attrs)
-            bottom.position = self.box.position
-            bottom.position_of_type = self.box.position
-            bottom.children = list(flatten(self.box.lines[lines:]))
-            return top, bottom
+            top = self.clone(top_parent, [], css)
+            bottom = self.clone(top_parent, [], css)
+            top_half, bottom_half = line.split(top, bottom, available_height - consumed, css)
+            top_lines = self.box.lines[:split_at_line] + ([top_half] if top_half else [])
+            bottom_lines = self.box.lines[split_at_line+1:] + ([bottom_half] if bottom_half else [])
+            return (
+                self.clone(top_parent, top_lines, css) if top_lines else None,
+                self.clone(bottom_parent, bottom_lines, css) if bottom_lines else None
+            )
 
     def draw(self, page, x, y):
         final_x, final_y = x, y - self.box.height
@@ -208,6 +307,32 @@ class Behavior:
             y -= line.height
         txt.close()
         return final_x, final_y
+
+    def draw_border_and_background(self, page, x, y):
+        page.save_state()
+        page.translate(x, y)
+        s, width, height = self.box.style, self.box.width, self.box.height
+        top_left, top_right, bottom_left, bottom_right = self.border_box
+        if s.background_color:
+            page.fill_color(*s.background_color)
+            page.rectangle(0, 0, width, height)
+        if s.border_top_width > 0:
+            page.line_width(s.border_top_width)
+            page.stroke_color(*s.border_top_color)
+            page.line(*top_left, *top_right)
+        if s.border_right_width > 0:
+            page.line_width(s.border_right_width)
+            page.stroke_color(*s.border_right_color)
+            page.line(*top_right, *bottom_right)
+        if s.border_bottom_width > 0:
+            page.line_width(s.border_bottom_width)
+            page.stroke_color(*s.border_bottom_color)
+            page.line(*bottom_left, *bottom_right)
+        if s.border_left_width > 0:
+            page.line_width(s.border_left_width)
+            page.stroke_color(*s.border_left_color)
+            page.line(*top_left, *bottom_left)
+        page.restore_state()
 
 
 class Block(Behavior):
@@ -280,88 +405,13 @@ class Box:
     def insert(self, i, child):
         self.behavior.insert(i, child)
 
-    def draw_border_and_background(self, page, x, y):
-        page.save_state()
-        page.translate(x, y)
-        s = self.style
-        top_left, top_right, bottom_left, bottom_right = self.border_box
-        if s.background_color:
-            page.fill_color(*s.background_color)
-            page.rectangle(0, 0, self.width, self.height)
-        if s.border_top_width > 0:
-            page.line_width(s.border_top_width)
-            page.stroke_color(*s.border_top_color)
-            page.line(*top_left, *top_right)
-        if s.border_right_width > 0:
-            page.line_width(s.border_right_width)
-            page.stroke_color(*s.border_right_color)
-            page.line(*top_right, *bottom_right)
-        if s.border_bottom_width > 0:
-            page.line_width(s.border_bottom_width)
-            page.stroke_color(*s.border_bottom_color)
-            page.line(*bottom_left, *bottom_right)
-        if s.border_left_width > 0:
-            page.line_width(s.border_left_width)
-            page.stroke_color(*s.border_left_color)
-            page.line(*top_left, *bottom_left)
-        page.restore_state()
-
     @property
     def empty(self):
         return not self.children
 
-    @property
-    def min_content_width(self):
-        width = 0
-        for block in self.children:
-            width = max(width, block.min_content_width)
-        return width
-
-    @property
-    def frame_top(self):
-        s = self.style
-        return s.margin_top + s.border_top_width + s.padding_top
-
-    @property
-    def frame_right(self):
-        s = self.style
-        return s.padding_right + s.border_right_width + s.margin_right
-
-    @property
-    def frame_bottom(self):
-        s = self.style
-        return s.margin_bottom + s.border_bottom_width + s.padding_bottom
-
-    @property
-    def frame_left(self):
-        s = self.style
-        return s.margin_left + s.border_left_width + s.padding_left
-
-    @property
-    def frame_width(self):
-        return self.frame_left + self.frame_right
-
-    @property
-    def frame_height(self):
-        return self.frame_top + self.frame_bottom
-
-    @property
-    def border_box(self):
-        s = self.style
-        return (
-            (s.margin_left, self.height-s.margin_top),  # top left
-            (self.width-s.margin_right, self.height-s.margin_top),  # top right
-            (s.margin_left, s.margin_bottom),  # bottom left
-            (self.width-s.margin_right, s.margin_bottom),  # bottom right
-        )
-
-    @property
-    def min_content_width(self):
-        return 0
-
     def traverse(self):
         for child in self.children:
-            if isinstance(child, str):
+            if isinstance(child, (str, Word)):
                 yield child, self
             elif child.style.display == 'inline' and not child.tag == 'br':
                 yield from child.traverse()
@@ -396,8 +446,8 @@ class Box:
     def wrap(self, page, available_width):
         return self.behavior.wrap(page, available_width)
 
-    def split(self, top_container, bottom_container, available_height):
-        return self.behavior.split(top_container, bottom_container, available_height)
+    def split(self, top, bottom, available_height, css):
+        return self.behavior.split(top, bottom, available_height, css)
 
     def draw(self, page, x, y):
         return self.behavior.draw(page, x, y)
