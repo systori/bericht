@@ -1,3 +1,8 @@
+0.1.03
+------
+
+* Various bug fixes and refactoring.
+
 0.1.02
 ------
 
