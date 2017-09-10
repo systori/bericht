@@ -5,36 +5,6 @@ from .table import *
 __all__ = ('HTMLParser',)
 
 
-TAG_TO_DISPLAY = {
-    'table': 'table',
-    'caption': 'table-caption',
-    'colgroup': 'table-column-group',
-    'col': 'table-column',
-    'thead': 'table-header-group',
-    'tfoot': 'table-footer-group',
-    'tbody': 'table-row-group',
-    'tr': 'table-row',
-    'td': 'table-cell',
-    'th': 'table-cell',
-
-    'body': 'block',
-    'div': 'block',
-    'p': 'block',
-    'ul': 'block',
-    'ol': 'block',
-
-    'li': 'list-item',
-
-    'span': 'inline',
-    'a': 'inline',
-    'b': 'inline',
-    'strong': 'inline',
-    'i': 'inline',
-    'u': 'inline',
-    'br': 'inline',
-}
-
-
 def pumper(html_generator):
     """
     Pulls HTML from source generator,
@@ -163,6 +133,7 @@ class HTMLParser:
                         child_node.position_of_type = position_of_type[child_node.tag] = position_of_type[child_node.tag] + 1
                         child_node.last = last
                         if yield_root_table_rows and isinstance(child_node.behavior, TableRow):
+                            self.css.apply_recursively(child_node)
                             yield child_element, child_node
 
                     if node.text_allowed and element.text:
@@ -181,9 +152,6 @@ class HTMLParser:
     def make_child(self, parent, tag, attrib):
         node = Box(parent, tag, attrib)
         self.css.apply(node)
-        if node.style.display is None:
-            display = TAG_TO_DISPLAY.get(tag, 'block')
-            node.style = node.style.set(display=display)
         node.behavior = self.get_behavior(parent.behavior if parent else None, node)
         if parent and parent.buffered:
             parent.add(node)

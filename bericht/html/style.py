@@ -27,6 +27,7 @@ class VerticalAlign:
 class BorderStyle(Enum):
     solid = 1
     dashed = 2
+    inset = 3
 
 
 class BorderCollapse(Enum):

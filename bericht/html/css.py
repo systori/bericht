@@ -1,9 +1,11 @@
+from os.path import dirname, join
 from tinycss2 import (
     parse_stylesheet, parse_declaration_list,
     ast, nth, color3
 )
 
 from bericht.html.style import Style, BorderCollapse, BorderStyle
+from bericht.html.box import Box
 
 __all__ = ('CSS',)
 
@@ -21,6 +23,8 @@ units = {
 
 
 def convert(value):
+    if isinstance(value, ast.NumberToken):
+        return value.value
     if value.unit in units:
         return value.value * units[value.unit]
     raise NotImplementedError(
@@ -54,6 +58,18 @@ class Combinator:
         return lambda node: name in node.classes
 
     @staticmethod
+    def select_attributes(attrs):
+        assert all(isinstance(attr, ast.IdentToken) for attr in attrs)
+
+        def attr_test(node):
+            for attr in attrs:
+                if attr.lower_value not in node.attrs:
+                    return False
+            return True
+
+        return attr_test
+
+    @staticmethod
     def select_position(a_b):
         a, b = a_b
 
@@ -67,7 +83,9 @@ class Combinator:
 
     @staticmethod
     def select_last_child(last_child):
-        return lambda node: last_child == node.last
+        def is_last_child(node):
+            return last_child == node.last
+        return is_last_child
 
     def add(self, selector, value, negate=False):
         matcher = selector(value)
@@ -115,24 +133,36 @@ class Declarations:
             else:
                 attr = declaration.name.replace('-', '_')
                 value_parts = parse_value_parts(declaration.value)
-                if declaration.name == 'border-color':
-                    apply_box_values(self.attrs, 'border_{}_color', list(map(color3.parse_color, value_parts)))
-                elif declaration.name in ('color', 'background-color'):
+                if declaration.name in ('color', 'background-color'):
                     self.attrs[attr] = color3.parse_color(value_parts[0])
-                elif declaration.name == 'border-width':
-                    apply_box_values(self.attrs, 'border_{}_width', list(map(convert, value_parts)))
                 elif declaration.name in ('margin', 'padding'):
                     apply_box_values(
                         self.attrs, declaration.name+'_{}',
                         list(map(convert, value_parts))
                     )
-                elif declaration.name == 'border-style':
-                    apply_box_values(
-                        self.attrs, 'border_{}_style',
-                        list(map(lambda v: getattr(BorderStyle, v.value), value_parts))
-                    )
+                elif declaration.name == 'border-color':
+                    apply_box_values(self.attrs, 'border_{}_color', list(map(color3.parse_color, value_parts)))
+                elif declaration.name == 'border-width':
+                    apply_box_values(self.attrs, 'border_{}_width', list(map(convert, value_parts)))
                 elif declaration.name == 'border-collapse':
-                    self.attrs['border_collapse'] = getattr(BorderCollapse, value_parts[0].value)
+                    self.attrs[attr] = getattr(BorderCollapse, value_parts[0].value)
+                elif declaration.name == 'border-style':
+                    apply_box_values(self.attrs, 'border_{}_style',
+                                     [getattr(BorderStyle, v.value) for v in value_parts])
+                elif declaration.name == 'border-spacing':
+                    if len(value_parts) == 1:
+                        self.attrs['border_spacing_horizontal'] = value_parts[0].value
+                        self.attrs['border_spacing_vertical'] = value_parts[0].value
+                    else:
+                        (self.attrs['border_spacing_horizontal'],
+                         self.attrs['border_spacing_vertical']) = value_parts
+                elif declaration.name.startswith('border-'):
+                    if declaration.name.endswith('-style'):
+                        self.attrs[attr] = getattr(BorderStyle, value_parts[0].value)
+                    elif declaration.name.endswith('-color'):
+                        self.attrs[attr] = color3.parse_color(value_parts[0])
+                    elif declaration.name.endswith('-width'):
+                        self.attrs[attr] = convert(value_parts[0])
                 elif isinstance(value_parts[0], ast.DimensionToken):
                     self.attrs[attr] = convert(value_parts[0])
                 else:
@@ -248,6 +278,9 @@ def parse_selectors(prelude):
                     combinator.add(combinator.select_position, nth.parse_nth(token.arguments))
                 elif token.name == 'nth-of-type':
                     raise NotImplementedError
+            elif isinstance(token, ast.SquareBracketsBlock):
+                prefix = None
+                combinator.add(combinator.select_attributes, token.content)
             else:
                 raise NotImplementedError
 
@@ -261,6 +294,11 @@ class CSS:
     def __init__(self, src):
         self.src = src
         self.rules = []
+        with open(join(dirname(__file__), 'html.css'), 'r') as html_css:
+            self.parse(html_css.read())
+        self.parse(src)
+
+    def parse(self, src):
         for rule in parse_stylesheet(src, skip_comments=True, skip_whitespace=True):
             if isinstance(rule, ast.AtRule) and rule.at_keyword == 'page':
                 selectors = parse_selectors(rule.prelude)
@@ -284,3 +322,9 @@ class CSS:
             for selector in selectors:
                 if selector.matches(node):
                     declarations.apply(node)
+
+    def apply_recursively(self, node):
+        self.apply(node)
+        for child in node.children:
+            if isinstance(child, Box):
+                self.apply_recursively(child)

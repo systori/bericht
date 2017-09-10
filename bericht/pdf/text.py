@@ -17,8 +17,11 @@ class PDFText:
     def write(self, code):
         self.page.write(code)
 
+    def move_position(self, dx=0, dy=0):
+        self.write("{} {} Td\n".format(dx, dy))
+
     def set_position(self, x=0, y=0):
-        self.write("{} {} Td\n".format(x, y))
+        self.write("1 0 0 1 {} {} Tm\n".format(x, y))
 
     def set_font(self, font_name, size, leading):
         self.font_name = font_name

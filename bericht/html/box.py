@@ -1,4 +1,4 @@
-from math import floor
+from copy import copy
 from string import whitespace
 from reportlab.pdfbase.pdfmetrics import stringWidth, getFont, getAscentDescent
 from .style import TextAlign, default as default_style, VerticalAlign
@@ -147,6 +147,7 @@ class Behavior:
 
     def wrap(self, page, available_width):
         self.box.width = available_width
+        available_width -= self.frame_width
         self.box.height = 0
 
         line = None
@@ -190,11 +191,12 @@ class Behavior:
 
         self.box.height = self.frame_height + content_height
 
-        return max_width, self.box.height
+        return max_width + self.frame_width, self.box.height
 
     def clone(self, parent, lines, css):
-        box = Box(parent, self.box.tag, self.box.attrs)
-        box.behavior = self
+        box = Box(parent or self.box.parent, self.box.tag, self.box.attrs)
+        box.behavior = copy(self)
+        box.behavior.box = box
         box.position = self.box.position
         box.position_of_type = self.box.position_of_type
         css.apply(box)
@@ -262,31 +264,31 @@ class Behavior:
                 self.clone(bottom_parent, self.box.lines[split_at_line:], css)
             )
 
-        else:
-            top = self.clone(top_parent, [], css)
-            bottom = self.clone(top_parent, [], css)
-            top_half, bottom_half = line.split(top, bottom, available_height - consumed, css)
-            top_lines = self.box.lines[:split_at_line] + ([top_half] if top_half else [])
-            bottom_lines = self.box.lines[split_at_line+1:] + ([bottom_half] if bottom_half else [])
-            return (
-                self.clone(top_parent, top_lines, css) if top_lines else None,
-                self.clone(bottom_parent, bottom_lines, css) if bottom_lines else None
-            )
+        top = self.clone(top_parent, [], css)
+        bottom = self.clone(top_parent, [], css)
+        top_half, bottom_half = line.split(top, bottom, available_height - consumed, css)
+        top_lines = self.box.lines[:split_at_line] + ([top_half] if top_half else [])
+        bottom_lines = ([bottom_half] if bottom_half else []) + self.box.lines[split_at_line+1:]
+        return (
+            self.clone(top_parent, top_lines, css) if top_lines else None,
+            self.clone(bottom_parent, bottom_lines, css) if bottom_lines else None
+        )
 
     def draw(self, page, x, y):
         final_x, final_y = x, y - self.box.height
         style = self.box.style
-        width = self.box.width
-        txt = page.begin_text(final_x, final_y)
-        x, y, alignment = 0, self.box.height - style.leading, style.text_align
-        txt.set_position(x, y)
+        width = self.box.width - self.frame_width
+        txt = page.begin_text(x, y)
         txt.set_font(style.font_name, style.font_size, style.leading)
         for line in self.box.lines:
             if isinstance(line, Line):
+                y -= line.height
                 if style.text_align == TextAlign.right:
-                    txt.set_position(width - line.width)
+                    txt.move_position(width - line.width, -line.height)
                 elif style.text_align == TextAlign.center:
-                    txt.set_position((width - line.width) / 2.0)
+                    txt.move_position((width - line.width) / 2.0, -line.height)
+                else:
+                    txt.move_position(0, -line.height)
                 fragments = []
                 for word in line.words:
                     if isinstance(word, Word):
@@ -301,10 +303,10 @@ class Behavior:
                         fragments.append(' ')
                 if fragments and fragments[-1] == ' ':
                     fragments.pop()  # last space
-                txt.draw(''.join(fragments), new_line=True)
+                txt.draw(''.join(fragments))
             else:
-                line.draw(page, final_x, final_y + y)
-            y -= line.height
+                _, y = line.draw(page, x, y)
+                txt.set_position(x, y)
         txt.close()
         return final_x, final_y
 

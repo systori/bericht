@@ -477,6 +477,8 @@ class TableRow(Behavior):
             x += width
             if self.collapsed:
                 x += self.horizontal_spacing / 2.0
+        if self.collapsed:
+            self.draw_border_and_background(page, original_x, original_y - self.box.height - (self.vertical_spacing / 2.0))
         return original_x, original_y - self.box.height
 
     def draw_collapsed_cell_border(self, before, cell, after):
@@ -533,4 +535,4 @@ class TableCell(Behavior):
             y -= (self.box.height + self.content_height) / 2.0
         else:
             y -= self.box.height - (self.content_height + self.frame_bottom)
-        super().draw(page, x, y)
+        return super().draw(page, x, y)

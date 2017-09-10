@@ -100,14 +100,6 @@ q {
     display: inline
 }
 
-q:before {
-    content: open-quote;
-}
-
-q:after {
-    content: close-quote;
-}
-
 center {
     display: block;
     text-align: center
@@ -133,19 +125,22 @@ video {
 
 h1 {
     display: block;
-    font-size: 2em;
+    /*font-size: 2em;*/
+    font-size: 28px;
     font-weight: bold
 }
 
 h2 {
     display: block;
-    font-size: 1.5em;
+    /*font-size: 1.5em;*/
+    font-size: 21px;
     font-weight: bold
 }
 
 h3 {
     display: block;
-    font-size: 1.17em;
+    /*font-size: 1.17em;*/
+    font-size: 16px;
     font-weight: bold
 }
 
@@ -156,13 +151,15 @@ h4 {
 
 h5 {
     display: block;
-    font-size: .83em;
+    /*font-size: .83em;*/
+    font-size: 12px;
     font-weight: bold
 }
 
 h6 {
     display: block;
-    font-size: .67em;
+    /*font-size: .67em;*/
+    font-size: 10px;
     font-weight: bold
 }
 
@@ -372,19 +369,8 @@ summary {
     display: block
 }
 
-summary::-webkit-details-marker {
-    display: inline-block;
-    width: 0.66em;
-    height: 0.66em;
-    -webkit-margin-end: 0.4em;
-}
-
 template {
     display: none
-}
-
-bdi, output {
-    unicode-bidi: -webkit-isolate;
 }
 
 bdo {
@@ -393,20 +379,4 @@ bdo {
 
 slot {
     display: contents;
-}
-
-/* page */
-
-@page {
-    /* FIXME: Define the right default values for page properties. */
-    size: auto;
-    margin: auto;
-    padding: 0px;
-    border-width: 0px;
-}
-
-/* Allows thead sections to print at the top of each page. */
-@media print {
-    thead { break-inside:avoid; }
-    tfoot { break-inside:avoid; }
 }
