@@ -1,3 +1,8 @@
+0.1.04
+------
+
+* Added missing files in MANIFEST.in
+
 0.1.03
 ------
 
