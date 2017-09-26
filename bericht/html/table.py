@@ -89,7 +89,7 @@ class Table(Behavior):
             self.reserve_header_height(page, available_width)
         )
         self.box.width = available_width
-        return self.width, self.height
+        return self.box.width, self.box.height
 
     def draw_header(self, page, x, y):
         if self.thead and self.thead.behavior.drawn_on != page.page_number:

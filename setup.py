@@ -14,14 +14,14 @@ long_description = '\n\n'.join((
 
 setup(
     name='bericht',
-    version='0.1.04',
+    version='0.1.5',
     url='https://github.com/systori/bericht',
     license='BSD',
-    description='Improved tabular report generation with ReportLab.',
+    description='HTML to PDF streaming',
     long_description=long_description,
     author='Lex Berezhny',
     author_email='lex@damoti.com',
-    keywords='pdf,table,report,reportlab,html',
+    keywords='pdf,table,report,html',
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
