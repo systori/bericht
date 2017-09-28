@@ -1,8 +1,8 @@
 bericht.egg-info/
 __pycache__/
-.idea/
+.idea
 .coverage
-coverage.xml
-dist/
-build/
+.tox
+dist
+build
 example/example.pdf

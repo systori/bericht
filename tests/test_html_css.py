@@ -1,8 +1,8 @@
-from unittest import TestCase
+from unittest import TestCase, skip
 from tinycss2 import parse_one_rule
 
 from bericht.html.css import parse_selectors
-from bericht.tests.utils import BaseTestCase
+from utils import BaseTestCase
 
 
 class TestSelectorParsing(TestCase):
@@ -42,7 +42,7 @@ class TestSelectorParsing(TestCase):
 
 class TestMatch(BaseTestCase):
 
-    def test_matching(self):
+    def test_class_tag_id_selectors(self):
         nodes = self.parse("""
             <p>initial</p>
             <p class="bolded">bolded</p>
@@ -53,9 +53,6 @@ class TestMatch(BaseTestCase):
             .bolded { font-weight: bold; }
             p.big { font-size: 16pt; }
         """)
-        css, nodes = nodes.css, list(nodes)
-        for node in nodes:
-            css.apply(node)
         initial, bolded, big, withid = nodes
         self.assertEqual(initial.style.font_size, 12)
         self.assertEqual(initial.style.font_weight, '')
@@ -65,3 +62,21 @@ class TestMatch(BaseTestCase):
         self.assertEqual(big.style.font_weight, 'bold')
         self.assertEqual(withid.style.font_size, 14)
         self.assertEqual(withid.style.font_weight, '')
+
+    @skip
+    def test_combinators(self):
+        nodes = list(self.parse("""
+            <p><b>text</b></p>
+            <div><b>text</b></div>
+            <div><p><b>text</b></p></div>
+        """, """
+            b { font-size: 14pt; }
+            div b { font-size: 16pt; }
+            div > b { color: green; }
+        """))
+        p_b = nodes[0].children[0]
+        div_b = nodes[1].children[0]
+        div_p_b = nodes[2].children[0].children[0]
+        self.assertEqual(p_b.style.font_size, 14)
+        self.assertEqual(div_b.style.font_size, 16)
+        self.assertEqual(div_p_b.style.font_size, 16)

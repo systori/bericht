@@ -2,23 +2,14 @@ language: python
 
 python:
   - "3.5"
+  - "3.6"
 
-env:
-  global:
-    - GIT_COMMITTED_AT=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then git log -1 --pretty=format:%ct; else git log -1 --skip 1 --pretty=format:%ct; fi)
+install: pip install tox-travis coverage
+script: tox
 
-before_script:
-  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
-  - chmod +x ./cc-test-reporter
-  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter before-build; fi
-
-install:
-  - pip install -e .
-  - pip install coverage
-
-script:
-  - make test
-  - if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then ./cc-test-reporter after-build -t coverage.py --exit-code $TRAVIS_TEST_RESULT; fi
+after_success:
+  - coverage combine tests/
+  - bash <(curl -s https://codecov.io/bash)
 
 notifications:
   email: false

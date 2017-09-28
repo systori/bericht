@@ -1,5 +1,5 @@
 from bericht.pdf import PDFDocument
-from bericht.tests.utils import BaseTestCase
+from utils import BaseTestCase
 
 
 TABLE_HTML = """
