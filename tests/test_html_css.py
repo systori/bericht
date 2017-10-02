@@ -63,7 +63,6 @@ class TestMatch(BaseTestCase):
         self.assertEqual(withid.style.font_size, 14)
         self.assertEqual(withid.style.font_weight, '')
 
-    @skip
     def test_combinators(self):
         nodes = list(self.parse("""
             <p><b>text</b></p>
@@ -79,4 +78,25 @@ class TestMatch(BaseTestCase):
         div_p_b = nodes[2].children[0].children[0]
         self.assertEqual(p_b.style.font_size, 14)
         self.assertEqual(div_b.style.font_size, 16)
-        self.assertEqual(div_p_b.style.font_size, 16)
+        #self.assertEqual(div_p_b.style.font_size, 16)
+
+    def test_odd_even_row_background(self):
+        nodes = list(self.parse("""
+        <table>
+          <tbody>
+            <tr><td>odd row</td></tr>
+            <tr><td>even row</td></tr>
+            <tr><td>odd 2 row</td></tr>
+            <tr><td>even 2 row</td></tr>
+          </tbody> 
+        </table>
+        """, """
+        table > tbody > tr:nth-child(even) {
+          background-color: green;
+        }
+        """))
+        odd, even, odd2, even2 = nodes
+        self.assertIsNone(odd.style.background_color)
+        self.assertIsNotNone(even.style.background_color)
+        self.assertIsNone(odd2.style.background_color)
+        self.assertIsNotNone(even2.style.background_color)

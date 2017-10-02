@@ -61,8 +61,8 @@ class PDFText:
                 if f != _font:
                     name = doc.fontMapping.get(f.fontName)
                     if name is None:
-                        name = doc.fontMapping[font.fontName] = '/F{}'.format(len(doc.fontMapping)+1)
-                        doc.delayedFonts.append(font)
+                        name = doc.fontMapping[f.fontName] = '/F{}'.format(len(doc.fontMapping)+1)
+                        doc.delayedFonts.append(f)
                     if name not in doc.font_references:
                         doc.font_references[name] = doc.ref()
                     if name not in self.page.font:
