@@ -1,3 +1,9 @@
+0.1.6
+-----
+
+* Font handling bug fix.
+* More tests.
+
 0.1.5
 ------
 

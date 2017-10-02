@@ -14,7 +14,7 @@ long_description = '\n\n'.join((
 
 setup(
     name='bericht',
-    version='0.1.5',
+    version='0.1.6',
     url='https://github.com/systori/bericht',
     license='BSD',
     description='HTML to PDF streaming',
